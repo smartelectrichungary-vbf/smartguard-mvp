@@ -1,0 +1,1781 @@
+:root {
+  color-scheme: light;
+  --ink: #172331;
+  --muted: #667084;
+  --line: #d7dee8;
+  --surface: #ffffff;
+  --wash: #f3f6f9;
+  --blue: #0f5d8f;
+  --blue-2: #1478b8;
+  --green: #1f9d55;
+  --lime: #74b816;
+  --yellow: #f2b705;
+  --orange: #e67700;
+  --red: #c92a2a;
+  --shadow: 0 18px 50px rgba(23, 35, 49, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  background: var(--wash);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #102536;
+  color: #fff;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: #0f7ac0;
+  font-weight: 800;
+}
+
+.brand strong,
+.brand span {
+  display: block;
+}
+
+.brand span,
+.eyebrow,
+.site-panel label {
+  color: var(--muted);
+}
+
+.sidebar .brand span,
+.sidebar .site-panel label {
+  color: #b8c5d1;
+}
+
+.nav {
+  display: grid;
+  gap: 8px;
+}
+
+.nav-item,
+.primary,
+.secondary {
+  border: 0;
+  border-radius: 7px;
+  min-height: 44px;
+  padding: 11px 14px;
+  font-weight: 700;
+}
+
+.nav-item {
+  text-align: left;
+  color: #dce6ef;
+  background: transparent;
+}
+
+.nav-item.active {
+  background: #ffffff;
+  color: #102536;
+}
+
+.site-panel {
+  display: grid;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 11px 12px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 16px;
+  touch-action: manipulation;
+}
+
+.sidebar input {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.workspace {
+  min-width: 0;
+  padding: 24px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: 28px;
+}
+
+h2 {
+  margin-bottom: 14px;
+  font-size: 20px;
+}
+
+.eyebrow {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sync-state {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.version-badge {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #102536;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
+
+.score-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+
+.score-hero.colorful {
+  position: relative;
+  overflow: hidden;
+}
+
+.score-hero.colorful::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(15, 93, 143, 0.1), rgba(31, 157, 85, 0.08), rgba(242, 183, 5, 0.08));
+}
+
+.score-hero > * {
+  position: relative;
+}
+
+.score-number {
+  font-size: 72px;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--blue);
+}
+
+.qualification {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.score-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.primary {
+  background: var(--blue);
+  color: #fff;
+}
+
+.secondary {
+  background: #e8eef5;
+  color: var(--ink);
+}
+
+.wide {
+  width: 100%;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.category-card,
+.entry-form,
+.field-assistant,
+.dashboard-band section,
+.report-panel,
+.settings-panel,
+.fault-table {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.category-card {
+  padding: 14px;
+}
+
+.category-card strong {
+  display: block;
+  margin-bottom: 10px;
+  min-height: 38px;
+}
+
+.bar-track {
+  height: 12px;
+  background: #e7ebef;
+  overflow: hidden;
+  border-radius: 999px;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 0;
+  background: var(--red);
+  transition: width 180ms ease;
+}
+
+.category-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboard-band,
+.report-grid,
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.room-form {
+  margin-bottom: 16px;
+}
+
+.room-list,
+.editable-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.room-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(120px, 0.6fr) 90px 44px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.grid-row {
+  display: grid;
+  gap: 0;
+  min-width: 980px;
+}
+
+.hurok-row {
+  grid-template-columns: 62px 160px 280px 90px 130px 100px 90px 110px 110px 120px minmax(260px, 1fr);
+}
+
+.avk-row {
+  grid-template-columns: 62px 120px 100px 140px 80px 90px 80px 80px 100px 100px 70px 70px 110px 120px minmax(240px, 1fr);
+}
+
+.editable-grid {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  position: relative;
+}
+
+/* Sticky fejléc minden nézetben */
+.grid-title {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+}
+
+.grid-cell {
+  min-height: 48px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  padding: 6px;
+  display: grid;
+  align-items: center;
+}
+
+.grid-row .grid-cell:first-child {
+  border-left: 1px solid var(--line);
+}
+
+.grid-title .grid-cell {
+  border-top: 1px solid var(--line);
+}
+
+.grid-head {
+  background: #102536;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.grid-cell input,
+.grid-cell select {
+  min-height: 36px;
+  padding: 7px 8px;
+  border-color: #cbd5e1;
+  background: #f7f9fb;
+}
+
+.grid-cell input:focus,
+.grid-cell select:focus {
+  outline: 2px solid rgba(15, 93, 143, 0.22);
+  border-color: var(--blue);
+  background: #fff;
+}
+
+.protocol-paper {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+
+.protocol-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.protocol-cover {
+  display: grid;
+  gap: 8px;
+  padding: 22px;
+  margin-bottom: 18px;
+  border: 2px solid #102536;
+  text-align: center;
+}
+
+.protocol-cover p,
+.protocol-cover h2 {
+  margin: 0;
+}
+
+.protocol-cover strong {
+  color: var(--blue);
+  font-size: 28px;
+}
+
+#protocolBody {
+  min-height: 420px;
+  line-height: 1.45;
+}
+
+.report-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 24px;
+  border-radius: 8px;
+  color: #fff;
+  background: linear-gradient(135deg, #102536, #0f5d8f 55%, #1f9d55);
+  box-shadow: var(--shadow);
+}
+
+.report-hero h2,
+.report-hero p {
+  margin-bottom: 8px;
+}
+
+.report-score {
+  min-width: 180px;
+  text-align: right;
+  font-size: 76px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.report-bars {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.report-bar-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 62px;
+  gap: 12px;
+  align-items: center;
+}
+
+.type-panel {
+  margin-bottom: 14px;
+}
+
+.type-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #e8eef5;
+  font-weight: 700;
+}
+
+.type-chip button {
+  border: 0;
+  background: transparent;
+  font-weight: 900;
+}
+
+.distribution-list {
+  display: grid;
+  gap: 16px;
+}
+
+.distribution-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.distribution-head {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 10px;
+  padding: 14px;
+  background: #fff3cd;
+  border-bottom: 1px solid var(--line);
+}
+
+.distribution-head input {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--blue);
+  text-align: center;
+}
+
+.distribution-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 10px;
+  padding: 14px;
+  background: #f8f9fa;
+}
+
+.fault-subtable {
+  padding: 14px;
+}
+
+.fault-subhead,
+.fault-subrow {
+  display: grid;
+  grid-template-columns: 80px minmax(260px, 1fr) 120px 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+.fault-subhead {
+  margin-bottom: 8px;
+  color: var(--blue);
+  font-weight: 800;
+}
+
+.fault-subrow {
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.dashboard-band section,
+.report-panel,
+.settings-panel,
+.fault-table {
+  padding: 18px;
+}
+
+.compact-list {
+  display: grid;
+  gap: 10px;
+}
+
+.compact-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.capture-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  gap: 16px;
+}
+
+.entry-form,
+.field-assistant {
+  padding: 18px;
+}
+
+.entry-form {
+  display: grid;
+  gap: 14px;
+}
+
+.form-head,
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+
+.inline-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.client-score {
+  display: grid;
+  gap: 4px;
+  padding: 18px;
+  margin-bottom: 14px;
+  border-radius: 8px;
+  background: #102536;
+  color: #fff;
+}
+
+.client-score span {
+  font-size: 52px;
+  font-weight: 800;
+}
+
+.fault-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 70px 90px 44px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.fault-row.header {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pill {
+  display: inline-grid;
+  place-items: center;
+  min-width: 38px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 800;
+}
+
+.delete-btn {
+  border: 0;
+  background: #f1f3f5;
+  border-radius: 6px;
+  min-height: 36px;
+}
+
+.helper-text {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 44px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.inline-add-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px auto;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.numeric-settings {
+  display: grid;
+  gap: 12px;
+}
+
+.weight-total {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-weight: 800;
+}
+
+.weight-total.ok {
+  background: #e6f4ea;
+  color: #1f7a3a;
+}
+
+.weight-total.warn {
+  background: #fff4d6;
+  color: #8a5a00;
+}
+
+.print-area {
+  margin-top: 16px;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.client-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: #081620;
+  color: #fff;
+  padding: 24px;
+}
+
+.client-modal.open {
+  display: grid;
+  place-items: center;
+}
+
+.client-board {
+  width: min(900px, 100%);
+  position: relative;
+}
+
+.client-board button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 30px;
+}
+
+.client-board p {
+  color: #9fb2c4;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.client-board > strong {
+  display: block;
+  font-size: clamp(84px, 18vw, 190px);
+  line-height: 0.9;
+}
+
+.client-board > span {
+  display: block;
+  margin-bottom: 32px;
+  font-size: 32px;
+  color: #dce6ef;
+}
+
+.modal-bar {
+  display: grid;
+  grid-template-columns: 180px 1fr 70px;
+  gap: 14px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+@media (max-width: 980px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    z-index: 10;
+    padding: 14px;
+  }
+
+  .nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto auto;
+    gap: 6px;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .nav-item {
+    min-width: 0;
+    min-height: 36px;
+    padding: 7px 4px;
+    text-align: center;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .site-panel {
+    display: none;
+  }
+
+  .category-grid,
+  .dashboard-band,
+  .capture-layout,
+  .report-grid,
+  .settings-grid,
+  .protocol-tabs,
+  .distribution-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace {
+    padding: 14px;
+  }
+
+  .topbar,
+  .score-hero,
+  .form-head,
+  .section-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .score-number {
+    font-size: 58px;
+  }
+
+  .inline-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .fault-row {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-row,
+  .inline-add-form,
+  .room-row,
+  .report-bar-row,
+  .distribution-head,
+  .fault-subhead,
+  .fault-subrow {
+    grid-template-columns: 1fr;
+  }
+
+  .report-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .report-score {
+    min-width: 0;
+    text-align: left;
+    font-size: 58px;
+  }
+
+  .fault-row.header {
+    display: none;
+  }
+
+  .editable-grid {
+    overflow-x: auto;
+    gap: 0;
+    max-height: calc(100vh - 200px);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .grid-title {
+    display: grid;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .grid-row,
+  .hurok-row,
+  .avk-row {
+    display: grid;
+    grid-template-columns: inherit;
+    min-width: 0;
+    gap: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .hurok-row {
+    min-width: 1553px;
+    grid-template-columns: 62px 160px 280px 90px 130px 100px 90px 110px 110px 120px 260px;
+  }
+
+  .avk-row {
+    min-width: 1740px;
+    grid-template-columns: 62px 120px 100px 140px 80px 90px 80px 80px 100px 100px 70px 70px 110px 120px 240px;
+  }
+
+  .grid-cell {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    align-items: center;
+    min-height: 0;
+    padding: 4px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: #fff;
+  }
+
+  .grid-cell::before {
+    content: none;
+  }
+
+  .grid-cell input,
+  .grid-cell select {
+    min-height: 42px;
+    border-color: var(--line);
+    background: #fff;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .sidebar,
+  .topbar,
+  .view:not(#reports),
+  .report-grid,
+  .client-modal {
+    display: none !important;
+  }
+
+  .app-shell,
+  .workspace {
+    display: block;
+    padding: 0;
+  }
+
+  #reports,
+  .print-area {
+    display: block;
+    border: 0;
+    padding: 0;
+  }
+}
+
+/* ─── HELYISÉG SZEKCIÓK A HUROK TÁBLÁBAN ─── */
+
+.hurok-col-header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+}
+
+.hurok-row-10 {
+  display: grid;
+  grid-template-columns: 62px 300px 90px 130px 100px 90px 110px 110px 120px minmax(260px, 1fr);
+  min-width: 1372px;
+  gap: 0;
+}
+
+.room-section {
+  border-bottom: 2px solid var(--blue);
+}
+
+.room-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #e8f0f8;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--line);
+  border-top: 2px solid var(--blue);
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  flex-wrap: wrap;
+}
+
+.room-section-header:hover {
+  background: #d4e4f5;
+}
+
+.room-toggle-icon {
+  font-size: 13px;
+  color: var(--blue);
+  min-width: 14px;
+}
+
+.room-section-name {
+  font-size: 15px;
+  color: var(--blue);
+}
+
+.room-section-level {
+  font-size: 12px;
+  color: var(--muted);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.room-section-count {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.room-done-badge {
+  font-size: 11px;
+  font-weight: 800;
+  background: #e6f4ea;
+  color: var(--green);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.room-fault-badge {
+  font-size: 11px;
+  font-weight: 800;
+  background: #ffe4e4;
+  color: var(--red);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.room-add-btn {
+  border: 1px solid var(--blue);
+  background: #fff;
+  color: var(--blue);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.room-add-btn:hover {
+  background: var(--blue);
+  color: #fff;
+}
+
+.room-section-body {
+  display: block;
+  overflow: hidden;
+}
+
+.room-section.collapsed .room-section-body {
+  display: none;
+}
+
+.room-section.collapsed .room-section-header {
+  background: #f3f6f9;
+  border-bottom: 1px solid var(--line);
+}
+
+@media (max-width: 640px) {
+  .hurok-row-10 {
+    min-width: 1200px;
+    grid-template-columns: 52px 260px 80px 120px 90px 80px 100px 100px 110px 240px;
+  }
+
+  .room-section-header {
+    top: 42px;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .room-section-count {
+    margin-left: 0;
+  }
+}
+
+/* ─── ÜGYFÉL NÉZET (client modal) ─────────────────────────── */
+
+.client-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: #081620;
+  color: #fff;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.client-modal.open {
+  display: block;
+}
+
+.client-board {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+  position: relative;
+}
+
+#closeClientMode {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 30;
+}
+
+.client-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 24px;
+}
+
+.client-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: #0f7ac0;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.client-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #9fb2c4;
+  letter-spacing: 0.08em;
+}
+
+.client-site {
+  margin: 2px 0 0;
+  font-size: 15px;
+  color: #dce6ef;
+  font-weight: 700;
+}
+
+.client-score-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.client-score-box {
+  background: linear-gradient(135deg, #0f5d8f, #1478b8);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.client-score-num {
+  font-size: clamp(56px, 14vw, 96px);
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+}
+
+.client-score-label {
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
+  margin-top: 6px;
+  letter-spacing: 0.08em;
+}
+
+.client-qual-box {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.client-qual-text {
+  font-size: clamp(20px, 4vw, 28px);
+  font-weight: 800;
+  text-align: center;
+  color: #dce6ef;
+}
+
+.client-bars {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.client-bar-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 56px;
+  gap: 12px;
+  align-items: center;
+}
+
+.client-bar-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #9fb2c4;
+}
+
+.client-bar-track {
+  height: 16px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.client-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.client-bar-pct {
+  font-size: 15px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.client-faults {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 20px;
+}
+
+.client-fault-list {
+  display: grid;
+  gap: 8px;
+}
+
+.client-fault-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.client-fault-pill {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+  flex-shrink: 0;
+  min-width: 22px;
+  text-align: center;
+}
+
+.client-fault-text {
+  font-size: 14px;
+  color: #b8c5d1;
+  line-height: 1.4;
+}
+
+/* ─── AVK elosztós szekciók CSS ────────────────────────────── */
+
+.avk-col-header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+}
+
+.avk-row-14 {
+  display: grid;
+  grid-template-columns: 56px 100px 140px 74px 80px 74px 70px 90px 90px 64px 64px 100px 100px minmax(200px,1fr);
+  min-width: 1300px;
+  gap: 0;
+}
+
+/* ─── HELYISÉG SOROK – alapértelmezett töltés ───────────────── */
+
+.room-row-extended {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.room-row-main {
+  display: grid;
+  grid-template-columns: minmax(180px,1fr) minmax(120px,0.6fr) 90px 44px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+}
+
+.room-count {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.room-row-defaults {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: #f3f6f9;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.room-row-defaults label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.room-row-defaults input {
+  width: 90px;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.room-fill-btn {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 6px 12px;
+  min-height: 32px;
+  background: #e8f5e9;
+  color: #1f7a3a;
+  border: 1px solid #1f9d55;
+}
+
+.room-breaker-badge {
+  font-size: 11px;
+  font-weight: 800;
+  background: #e8f5e9;
+  color: #1f7a3a;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* ─── MOBILON FEJLÉC KÉK ───────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .hurok-col-header .grid-head,
+  .avk-col-header .grid-head {
+    background: #102536;
+    color: #fff;
+    font-size: 10px;
+  }
+
+  .avk-row-14 {
+    min-width: 1300px;
+    grid-template-columns: 56px 100px 140px 74px 80px 74px 70px 90px 90px 64px 64px 100px 100px 200px;
+  }
+
+  .client-score-row {
+    grid-template-columns: 1fr;
+  }
+
+  .client-bar-row {
+    grid-template-columns: 120px 1fr 48px;
+  }
+}
+
+/* ─── V19 ÚJÍTÁSOK ──────────────────────────────────────────── */
+
+/* Hurok 12 oszlopos sor */
+.hurok-row-12 {
+  display: grid;
+  grid-template-columns: 52px 80px 260px 80px 110px 100px 80px 100px 80px 110px 100px minmax(220px,1fr);
+  min-width: 1370px;
+  gap: 0;
+}
+
+/* AVK 14 oszlopos */
+.avk-row-14 {
+  display: grid;
+  grid-template-columns: 52px 100px 140px 70px 80px 70px 66px 90px 90px 60px 60px 100px 96px minmax(180px,1fr);
+  min-width: 1255px;
+  gap: 0;
+}
+
+/* Fejléc csak a szekción belül */
+.hurok-inner-header,
+.avk-inner-header {
+  position: sticky;
+  top: 90px; /* room-section-header (42px) + room-section-actions (48px) */
+  z-index: 6;
+}
+
+/* + sorok gomb a szekción belül */
+.room-section-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f0f5fb;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+}
+
+.room-add-eph {
+  background: #e8f5e9;
+  color: #1f7a3a;
+  border-color: #1f9d55;
+}
+
+/* Limit badge a táblában */
+.limit-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #e8f0f8;
+  color: #1F497D;
+}
+.limit-unknown {
+  background: #f3f3f3;
+  color: #aaa;
+}
+
+/* NA szekció label */
+.na-section-label {
+  margin-top: 12px;
+  padding: 4px 8px;
+  background: #f3f6f9;
+  border-left: 3px solid #8792a2;
+  font-size: 12px;
+  font-weight: 800;
+  color: #667084;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fault-section-label {
+  margin-top: 12px;
+  padding: 4px 8px;
+  background: #fff3f3;
+  border-left: 3px solid var(--red);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--red);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.na-item { opacity: 0.75; }
+
+.pill-na {
+  background: #8792a2;
+  color: #fff;
+}
+
+/* Elosztó betáp mérések */
+.distribution-measurements {
+  padding: 12px 14px;
+  background: #f0f5fb;
+  border-top: 1px solid var(--line);
+}
+
+.distribution-measurements strong {
+  display: block;
+  font-size: 13px;
+  color: #1F497D;
+  margin-bottom: 8px;
+}
+
+.measurement-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.measurement-row label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.measurement-row input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+/* Helyiség kibővített sor */
+.room-row-extended {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.room-row-main {
+  display: grid;
+  grid-template-columns: minmax(180px,1fr) minmax(120px,0.6fr) 90px 44px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+}
+.room-count { font-size:13px; color:var(--muted); font-weight:700; text-align:center; }
+.room-row-defaults {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #f3f6f9;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.room-row-defaults label { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--muted); }
+.room-row-defaults input { width:90px; min-height:32px; padding:4px 8px; font-size:13px; }
+.room-fill-btn { margin-left:auto; font-size:12px; padding:6px 12px; min-height:32px; background:#e8f5e9; color:#1f7a3a; border:1px solid #1f9d55; }
+.room-breaker-badge { font-size:11px; font-weight:800; background:#e8f5e9; color:#1f7a3a; border-radius:999px; padding:2px 8px; }
+
+/* Mobil */
+@media (max-width: 640px) {
+  .hurok-row-12 {
+    min-width: 1200px;
+    grid-template-columns: 48px 72px 220px 72px 100px 90px 72px 90px 72px 100px 90px 200px;
+  }
+  .avk-row-14 {
+    min-width: 1200px;
+    grid-template-columns: 48px 90px 130px 64px 74px 64px 60px 84px 84px 56px 56px 94px 90px 170px;
+  }
+  .measurement-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .room-row-main {
+    grid-template-columns: 1fr 44px;
+  }
+  .room-section-actions {
+    padding: 6px 8px;
+  }
+}
+
+/* ─── ALAPDOKUMENTÁCIÓ ──────────────────────────────────────── */
+
+.alapdok-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.alapdok-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.alapdok-panel {
+  padding: 18px;
+}
+
+.alapdok-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.alapdok-fields label {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.alapdok-fields input,
+.alapdok-fields select {
+  font-size: 15px;
+  min-height: 38px;
+}
+
+.cb-group {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cb-group strong {
+  display: block;
+  font-size: 13px;
+  color: #1F497D;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cb-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: var(--ink) !important;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.cb-label input[type="checkbox"] {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: #1F497D;
+}
+
+.cb-label:has(input:checked) {
+  font-weight: 700 !important;
+  color: #1F497D !important;
+}
+
+/* Vizsgálati táblázat */
+.vizsgalati-table {
+  margin-top: 8px;
+}
+
+.vizsgalat-header {
+  display: grid;
+  grid-template-columns: 1fr 100px 140px;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #102536;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  border-radius: 6px 6px 0 0;
+}
+
+.vizsgalat-row {
+  display: grid;
+  grid-template-columns: 1fr 100px 140px;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  background: #fff;
+}
+
+.vizsgalat-row:nth-child(even) { background: #f8f9fa; }
+
+.vizsgalat-label {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.vizsgalat-row select,
+.vizsgalat-row input {
+  min-height: 32px;
+  font-size: 13px;
+  padding: 4px 8px;
+}
+
+@media (max-width: 980px) {
+  .alapdok-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .vizsgalat-header,
+  .vizsgalat-row {
+    grid-template-columns: 1fr 80px 100px;
+  }
+}
+
+/* ─── V22: Sorszám badge ─────────────────────────────────── */
+.row-no-badge {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+  padding: 4px 2px;
+}
+
+/* ─── V22: Mobilos sticky fix ────────────────────────────── */
+@media (max-width: 980px) {
+  .room-section-header {
+    top: 0;
+    z-index: 7;
+  }
+  .room-section-actions {
+    top: 0;
+    z-index: 6;
+  }
+  .hurok-inner-header,
+  .avk-inner-header {
+    top: 88px; /* header ~44px + actions ~44px mobilon */
+    z-index: 5;
+  }
+}
+
+@media (max-width: 640px) {
+  .room-section-header {
+    top: 0;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .room-section-actions {
+    top: 38px; /* kisebb header magasság után */
+  }
+  .hurok-inner-header,
+  .avk-inner-header {
+    top: 80px;
+  }
+}

@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f5d8f" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <title>SMARTGuard helyszíni MVP</title>
+    <link rel="stylesheet" href="./styles.css?v=22" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">SG</div>
+          <div>
+            <strong>SMARTGuard</strong>
+            <span>VBF helyszíni rendszer</span>
+          </div>
+        </div>
+        <nav class="nav" aria-label="Fő navigáció">
+          <button class="nav-item active" data-view="dashboard">Áttekintés</button>
+          <button class="nav-item" data-view="rooms">Helyiségek</button>
+          <button class="nav-item" data-view="hurokTable">Hurok + EPH</button>
+          <button class="nav-item" data-view="avkTable">AVK</button>
+          <button class="nav-item" data-view="elosztoTable">Elosztó</button>
+          <button class="nav-item" data-view="alapdok">Alapdokumentáció</button>
+          <button class="nav-item" data-view="protocol">Jegyzőkönyvek</button>
+          <button class="nav-item" data-view="reports">Riport</button>
+          <button class="nav-item" data-view="settings">Beállítások</button>
+        </nav>
+        <section class="site-panel">
+          <label>Ügyfél <input id="customerName" type="text" autocomplete="organization" /></label>
+          <label>Telephely <input id="siteAddress" type="text" autocomplete="street-address" /></label>
+          <label>Vizsgálat dátuma <input id="inspectionDate" type="date" /></label>
+          <label>Hurok jegyzőkönyv <input id="protocolHurok" type="text" readonly /></label>
+          <label>AVK jegyzőkönyv <input id="protocolAvk" type="text" readonly /></label>
+          <label>Elosztó jegyzőkönyv <input id="protocolEloszto" type="text" readonly /></label>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Élő helyszíni státusz</p>
+            <h1 id="siteTitle">SMARTGuard</h1>
+          </div>
+          <div class="topbar-actions">
+            <div class="version-badge">Stabil táblázatos MVP v22</div>
+            <div class="sync-state" id="syncState">Mentve</div>
+          </div>
+        </header>
+
+        <!-- ÁTTEKINTÉS -->
+        <section id="dashboard" class="view active">
+          <div class="score-hero colorful">
+            <div>
+              <p class="eyebrow">SMARTScore</p>
+              <div class="score-number"><span id="smartScore">0</span>%</div>
+              <p id="qualification" class="qualification">Nincs adat</p>
+            </div>
+            <div class="score-actions">
+              <button class="primary" id="showClientMode">Ügyfél nézet</button>
+              <button class="secondary" data-jump="hurokTable">Hurok sor</button>
+              <button class="secondary" data-jump="avkTable">AVK sor</button>
+              <button class="secondary" data-jump="elosztoTable">Elosztó</button>
+            </div>
+          </div>
+          <div class="category-grid" id="categoryGrid"></div>
+          <div class="dashboard-band">
+            <section>
+              <h2>Hibák és hiányos adatok</h2>
+              <div id="criticalList" class="compact-list"></div>
+            </section>
+            <section>
+              <h2>Jegyzőkönyvek</h2>
+              <div id="protocolList" class="compact-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <!-- HELYISÉGEK -->
+        <section id="rooms" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Helyiség törzs</p>
+              <h2>Helyiségek felvitele</h2>
+            </div>
+          </div>
+          <form id="roomForm" class="inline-add-form room-form">
+            <input id="newRoomName" type="text" placeholder="pl. Kazánház" required />
+            <input id="newRoomLevel" type="text" placeholder="szint / zóna" />
+            <button class="primary" type="submit">Helyiség hozzáadása</button>
+          </form>
+          <div id="roomList" class="room-list"></div>
+        </section>
+
+        <!-- HUROK + EPH -->
+        <section id="hurokTable" class="view table-view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Jegyzőkönyv: Hurok + EPH</p>
+              <h2>Hurok / EPH táblázat</h2>
+            </div>
+            <button class="primary" id="addHurokRoom">+ Új helyiség</button>
+          </div>
+          <div id="hurokGrid" class="editable-grid"></div>
+        </section>
+
+        <!-- AVK -->
+        <section id="avkTable" class="view table-view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Jegyzőkönyv: AVK</p>
+              <h2>Áram-védőkapcsolók ellenőrzése</h2>
+            </div>
+            <button class="primary" id="addAvkRow">+ AVK sor</button>
+          </div>
+          <div id="avkGrid" class="editable-grid"></div>
+        </section>
+
+        <!-- ELOSZTÓ -->
+        <section id="elosztoTable" class="view table-view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Jegyzőkönyv: Elosztó + dokumentáció</p>
+              <h2>Elosztó komplex minősítése</h2>
+            </div>
+            <button class="primary" id="addElosztoRow">Új elosztó</button>
+          </div>
+          <div id="elosztoGrid" class="distribution-list"></div>
+        </section>
+
+        <!-- ALAPDOKUMENTÁCIÓ -->
+        <section id="alapdok" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">MSZ HD 60364-6:2017</p>
+              <h2>Alapdokumentáció</h2>
+            </div>
+            <button class="secondary" id="downloadAlapdokWord">⬇ Alapdok Word letöltése</button>
+          </div>
+
+          <div class="alapdok-grid">
+            <div class="alapdok-col">
+
+              <section class="settings-panel alapdok-panel">
+                <h2>Általános adatok</h2>
+                <div class="alapdok-fields">
+                  <label>A felülvizsgálat helye<input id="ad_hely" type="text" placeholder="pl. 3300 Eger, Példa u. 1." /></label>
+                  <label>Megrendelő cég adatai<input id="ad_megrendelo" type="text" placeholder="pl. SPAR Magyarország Kft." /></label>
+                  <label>Üzemi kísérő / kapcsolattartó<input id="ad_kisero" type="text" placeholder="Kapcsolattartó neve" /></label>
+                  <label>Felülvizsgálat időtartama<input id="ad_idotartam" type="text" placeholder="pl. 2026.05.22. 08:00–16:00" /></label>
+                  <label>Felelős felülvizsgáló<input id="ad_felelos" type="text" value="Nyikos Dániel" /></label>
+                  <label>Végzettség<input id="ad_vegzettseg" type="text" value="Villamos Biztonsági Felülvizsgáló" /></label>
+                  <label>VBF bizonyítvány száma<input id="ad_vbf_szam" type="text" value="SZVSZ/2025/24/010" /></label>
+                  <label>Tűzvédelmi bizonyítvány száma<input id="ad_tuz_szam" type="text" value="OKVI-1683/14/2025" /></label>
+                </div>
+              </section>
+
+              <section class="settings-panel alapdok-panel">
+                <h2>Következő vizsgálat időpontjai</h2>
+                <p class="helper-text" style="font-size:13px;margin-bottom:10px">Mind a négy mezőbe ugyanaz a dátum kerül.</p>
+                <div class="alapdok-fields">
+                  <label>1. időpont<input id="ad_kov1" type="date" /></label>
+                  <label>2. időpont<input id="ad_kov2" type="date" /></label>
+                  <label>3. időpont<input id="ad_kov3" type="date" /></label>
+                  <label>4. időpont<input id="ad_kov4" type="date" /></label>
+                </div>
+                <button class="secondary" id="ad_kovSyncBtn" style="margin-top:8px;font-size:13px">1. dátum másolása mindegyikbe</button>
+              </section>
+
+              <section class="settings-panel alapdok-panel">
+                <h2>Minősítési alapadatok</h2>
+                <div class="alapdok-fields">
+                  <label>Névleges feszültség
+                    <select id="ad_feszultseg"><option value="400/230 V 50 Hz">400/230 V 50 Hz</option><option value="230 V 50 Hz">230 V 50 Hz</option></select>
+                  </label>
+                  <label>Hálózat rendszere
+                    <select id="ad_halozat"><option value="TN-C-S (TN)">TN-C-S (TN)</option><option value="TN-S">TN-S</option><option value="TN">TN</option><option value="TT">TT</option><option value="IT">IT</option></select>
+                  </label>
+                  <label>Hálózat földelési típusa<input id="ad_foldelestype" type="text" value="Betonalap földelés" /></label>
+                  <label>Alapvető érintésvédelmi mód<input id="ad_erintesvedelmi" type="text" value="Táplálás önműködő lekapcsolása - nullázás" /></label>
+                  <label>Betáplálás módja
+                    <select id="ad_betaplalasmod"><option value="Áramszolgáltatói 400V">Áramszolgáltatói 400V</option><option value="Áramszolgáltatói 230V">Áramszolgáltatói 230V</option><option value="Egyéb">Egyéb</option></select>
+                  </label>
+                  <label>Tartalék energia<input id="ad_tartalek" type="text" value="-" /></label>
+                  <label>Létesítés / legutóbbi felújítás éve<input id="ad_ev" type="text" placeholder="pl. 2015" /></label>
+                </div>
+              </section>
+
+            </div>
+
+            <div class="alapdok-col">
+              <section class="settings-panel alapdok-panel">
+                <h2>Védelmi módok és rendszerek</h2>
+
+                <div class="cb-group"><strong>Táplálás önműködő lekapcsolása</strong>
+                  <label class="cb-label"><input type="checkbox" id="ad_tn_c" /> TN-C rendszer</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_tn_s" /> TN-S rendszer</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_tn_cs" checked /> TN-C-S rendszer (TN)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_tt" /> TT rendszer (TT)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_it" /> IT rendszer (IT)</label>
+                </div>
+                <div class="cb-group"><strong>Egyéb védelmi módok</strong>
+                  <label class="cb-label"><input type="checkbox" id="ad_kmsz" checked /> Kettős vagy megerősített szigetelés (KMSZ)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_velv" /> Villamos elválasztás (VELV)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_selv" /> SELV- és PELV-törpefeszültség (SELV, PELV)</label>
+                </div>
+                <div class="cb-group"><strong>Kiegészítő védelmek</strong>
+                  <label class="cb-label"><input type="checkbox" id="ad_rcd" checked /> Áram-védőkapcsolók (RCD)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_keph" checked /> Kiegészítő egyenpotenciálú összekötés (KEPH)</label>
+                </div>
+                <div class="cb-group"><strong>Szakképzett személyek berendezéseinek védelmi módjai</strong>
+                  <label class="cb-label"><input type="checkbox" id="ad_ke" /> Környezet elszigetelése (KE)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_heph" /> Védelem földeletlen helyi egyenpotenciálú összekötéssel (HEPH)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_velvt" /> Villamos elválasztás egynél több fogyasztókészülékkel (VELVT)</label>
+                </div>
+                <div class="cb-group"><strong>Egyéb rendszerek</strong>
+                  <label class="cb-label"><input type="checkbox" id="ad_eph" checked /> Egyenpotenciálra hozó hálózat (EPH)</label>
+                </div>
+                <div class="cb-group"><strong>Alapvédelem</strong>
+                  <label class="cb-label"><input type="checkbox" id="ad_asz" checked /> Aktív részek alapszigetelése (ASZ)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_vf" checked /> Védőfedések (VF)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_vb" checked /> Védőburkolatok (VB)</label>
+                </div>
+                <div class="cb-group"><strong>Alapvédelem szakképzett személyek berendezéseiben</strong>
+                  <label class="cb-label"><input type="checkbox" id="ad_va" /> Védőakadályok (VA)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_eh" /> Elérhető tartományon kívüli elhelyezés (EH)</label>
+                </div>
+                <div class="cb-group"><strong>Érintésvédelmi osztályok</strong>
+                  <label class="cb-label"><input type="checkbox" id="ad_ev0" /> 0-s érintésvédelmi osztály (0)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_ev1" checked /> I-es érintésvédelmi osztály – PE-t igénylő szerkezetek (I)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_ev2" checked /> II-es érintésvédelmi osztály – kettős vagy megerősített szigetelés (II)</label>
+                  <label class="cb-label"><input type="checkbox" id="ad_ev3" /> III-as érintésvédelmi osztály – törpefeszültségű szerkezetek (III)</label>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <section class="settings-panel alapdok-panel" style="margin-top:16px">
+            <h2>Vizsgálati eredmények összefoglalása</h2>
+            <p class="helper-text" style="font-size:13px">Az értékek szerkeszthetők. MF/NMF/NA választható minden sornál.</p>
+            <div id="vizsgalatiTable" class="vizsgalati-table"></div>
+          </section>
+        </section>
+
+        <!-- JEGYZŐKÖNYVEK -->
+        <section id="protocol" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Szerkeszthető előnézet</p>
+              <h2>Három külön kiküldendő jegyzőkönyv</h2>
+            </div>
+            <button class="secondary" id="regenerateProtocol">Szövegek frissítése adatokból</button>
+          </div>
+          <div class="protocol-tabs">
+            <article class="protocol-paper">
+              <div class="protocol-cover"><p>Hurok + EPH</p><strong id="protocolHurokPreview"></strong></div>
+              <textarea id="protocolBodyHurok" rows="12"></textarea>
+            </article>
+            <article class="protocol-paper">
+              <div class="protocol-cover"><p>AVK</p><strong id="protocolAvkPreview"></strong></div>
+              <textarea id="protocolBodyAvk" rows="12"></textarea>
+            </article>
+            <article class="protocol-paper">
+              <div class="protocol-cover"><p>Elosztó + dokumentáció</p><strong id="protocolElosztoPreview"></strong></div>
+              <textarea id="protocolBodyEloszto" rows="12"></textarea>
+            </article>
+          </div>
+        </section>
+
+        <!-- RIPORT -->
+        <section id="reports" class="view">
+          <div class="report-hero">
+            <div>
+              <p class="eyebrow">Vezetői összefoglaló</p>
+              <h2>SMARTGuard állapotértékelés</h2>
+              <p id="reportIntro"></p>
+            </div>
+            <div class="report-score"><span id="reportScore">0</span>%</div>
+          </div>
+          <div id="reportBars" class="report-bars"></div>
+          <div class="report-grid">
+            <section class="report-panel">
+              <h2>Hibák és hiányos adatok</h2>
+              <div id="reportPriorities"></div>
+            </section>
+            <section class="report-panel">
+              <h2>Export</h2>
+              <p>Word jegyzetek egy kattintással, vagy PDF nyomtatás.</p>
+              <button class="primary wide" id="downloadAllWord">⬇ Mindkét Word letöltése (.zip)</button>
+              <button class="secondary wide" style="margin-top:8px" id="downloadHurokWord">⬇ Hurok + EPH Word</button>
+              <button class="secondary wide" style="margin-top:8px" id="downloadAvkWord">⬇ AVK Word</button>
+              <button class="secondary wide" style="margin-top:8px;background:#e8f5e9;color:#1A7A3C;border:1px solid #1A7A3C" id="downloadReportWord">⬇ Vezetői kiértékelő Word</button>
+              <hr style="margin:14px 0;border-color:#e0e0e0">
+              <button class="primary" id="printExecutive">PDF nyomtatás</button>
+              <button class="secondary" id="downloadJson">Adatcsomag letöltés</button>
+            </section>
+          </div>
+          <article id="printArea" class="print-area">
+            <h2>Smart VBF – Vezetői kiértékelés</h2>
+            <p><strong id="printCustomer"></strong></p>
+            <p id="printSite"></p>
+            <p id="printDate"></p>
+            <div id="printSummary"></div>
+          </article>
+        </section>
+
+        <!-- BEÁLLÍTÁSOK -->
+        <section id="settings" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Admin pontozási modell</p>
+              <h2>Súlyozások és értékelési szempontok</h2>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="secondary" id="resetScoring">Alapértékek visszaállítása</button>
+              <button class="secondary" id="clearStorage" style="background:#fdecea;color:#c0392b">Összes adat törlése</button>
+            </div>
+          </div>
+          <div class="settings-grid">
+            <section class="settings-panel">
+              <h2>Kategóriák és súlyok</h2>
+              <div id="categorySettings"></div>
+              <div class="weight-total" id="weightTotal"></div>
+            </section>
+            <section class="settings-panel">
+              <h2>Hibalevonások</h2>
+              <div id="penaltySettings" class="numeric-settings"></div>
+            </section>
+            <section class="settings-panel">
+              <h2>Minősítési sávok</h2>
+              <div id="thresholdSettings" class="numeric-settings"></div>
+            </section>
+            <section class="settings-panel">
+              <h2>AVK típus törzs</h2>
+              <form id="avkTypeForm" class="inline-add-form">
+                <input id="newAvkType" type="text" placeholder="pl. Schneider" required />
+                <button class="secondary" type="submit">Hozzáadás</button>
+              </form>
+              <div id="avkTypeList" class="type-list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- ÜGYFÉL MODAL -->
+    <div class="client-modal" id="clientModal" aria-hidden="true">
+      <div class="client-board">
+        <button id="closeClientMode" aria-label="Bezárás">×</button>
+        <div class="client-header">
+          <div class="client-logo">SG</div>
+          <div>
+            <p class="client-eyebrow">SMARTGuard élő állapot</p>
+            <p class="client-site" id="clientSiteName"></p>
+          </div>
+        </div>
+        <div class="client-score-row">
+          <div class="client-score-box">
+            <div class="client-score-num"><span id="modalScore">0</span>%</div>
+            <div class="client-score-label">SMARTScore</div>
+          </div>
+          <div class="client-qual-box">
+            <div id="modalQualification" class="client-qual-text">Nincs adat</div>
+          </div>
+        </div>
+        <div id="modalBars" class="client-bars"></div>
+        <div id="modalFaults" class="client-faults"></div>
+      </div>
+    </div>
+
+    <script src="./app.js?v=22"></script>
+  </body>
+</html>
