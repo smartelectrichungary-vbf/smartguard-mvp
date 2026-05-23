@@ -410,11 +410,33 @@ h2 {
 }
 
 .grid-head {
-  background: #102536;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 800;
+  background: #102536 !important;
+  color: #fff !important;
+  font-size: 10px !important;
+  font-weight: 700;
   text-transform: uppercase;
+  padding: 4px 6px !important;
+  min-height: 22px !important;
+  line-height: 1.2;
+}
+
+/* Hurok/AVK fejléc sor - garantált megjelenés */
+.hurok-row-13[style*="background"],
+.avk-row-15[style*="background"] {
+  position: relative;
+  z-index: 2;
+}
+.hurok-row-13[style*="background"] > div,
+.avk-row-15[style*="background"] > div {
+  background: #102536 !important;
+  color: #fff !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  padding: 4px 6px !important;
+  overflow: hidden;
+  word-break: keep-all;
+  white-space: nowrap;
 }
 
 .grid-cell input,
@@ -1033,7 +1055,9 @@ h2 {
 
 .room-section-body {
   display: block;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
 }
 
 .room-section.collapsed .room-section-body {
@@ -1745,4 +1769,276 @@ h2 {
     max-width: calc(100vw - 28px);
     overflow-x: hidden;
   }
+}
+
+/* ─── V23: Topbar elrejtése beviteli nézetekben ────────────── */
+.workspace.view-table .topbar-actions,
+.workspace.view-table .eyebrow {
+  display: none;
+}
+.workspace.view-table .topbar {
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+.workspace.view-table h1 {
+  font-size: 18px;
+  margin-bottom: 0;
+}
+
+/* ─── V23: Sor törlés gomb ──────────────────────────────────── */
+.row-delete-btn {
+  border: 0;
+  background: transparent;
+  color: #c92a2a;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  opacity: 0.5;
+  min-height: 36px;
+}
+.row-delete-btn:hover {
+  opacity: 1;
+  background: #fdecea;
+}
+
+/* ─── V23: Mobil fejléc fix ─────────────────────────────────── */
+@media (max-width: 640px) {
+  .hurok-row-12,
+  .avk-row-14 {
+    /* Hozzáadjuk a törlés gomb oszlopát */
+    min-width: 1250px;
+  }
+  .hurok-inner-header .grid-cell:last-child,
+  .avk-inner-header .grid-cell:last-child {
+    background: #102536;
+    color: #fff;
+  }
+}
+
+/* ─── V23: Új sor osztályok törlés gombbal ──────────────────── */
+.hurok-row-13 {
+  display: grid;
+  grid-template-columns: 52px 80px 260px 80px 110px 100px 80px 100px 80px 110px 100px minmax(200px,1fr) 36px;
+  min-width: 1406px;
+  gap: 0;
+}
+
+.avk-row-15 {
+  display: grid;
+  grid-template-columns: 52px 100px 140px 70px 80px 70px 66px 90px 90px 60px 60px 100px 96px minmax(160px,1fr) 36px;
+  min-width: 1291px;
+  gap: 0;
+}
+
+@media (max-width: 640px) {
+  .hurok-row-13 {
+    min-width: 1250px;
+    grid-template-columns: 48px 72px 220px 72px 100px 90px 72px 90px 72px 100px 90px 180px 36px;
+  }
+  .avk-row-15 {
+    min-width: 1240px;
+    grid-template-columns: 48px 90px 130px 64px 74px 64px 60px 84px 84px 56px 56px 94px 90px 160px 36px;
+  }
+}
+
+/* ─── V24: Riport redesign ─────────────────────────────────── */
+
+/* Összefoglaló kártya */
+.rscard {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #102536 0%, #1F497D 100%);
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 16px;
+  color: #fff;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.rscard-left { flex: 1; min-width: 200px; }
+.rscard-eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #9fb2c4; margin-bottom: 8px; }
+.rscard-customer { font-size: clamp(18px, 4vw, 26px); font-weight: 800; color: #fff; margin-bottom: 4px; }
+.rscard-site { font-size: 13px; color: #9fb2c4; }
+.rscard-right { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; }
+.rscard-score { font-size: clamp(48px, 12vw, 72px); font-weight: 800; line-height: 1; }
+.rscard-pct { font-size: 0.45em; font-weight: 700; vertical-align: super; }
+.rscard-qual { font-size: 14px; color: #dce6ef; margin-top: 4px; text-align: right; }
+.rscard-al { display: inline-block; color: #fff; font-size: 12px; font-weight: 800; padding: 5px 14px; border-radius: 999px; margin-top: 8px; }
+
+/* Kategória bárok */
+.rsbars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.rsbar-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.rsbar-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.rsbar-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+.rsbar-pct { font-size: 16px; font-weight: 800; }
+.rsbar-track { background: #e8eef5; border-radius: 999px; height: 8px; overflow: hidden; margin-bottom: 5px; }
+.rsbar-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+.rsbar-meta { font-size: 11px; }
+
+/* Kétoszlopos layout */
+.report-two-col {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+  align-items: start;
+}
+
+/* Export gombok */
+.export-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.export-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+.export-btn:hover { background: #f0f5fb; }
+.export-btn-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+.export-btn-primary:hover { background: #164b7a; }
+.export-btn-green { background: #e8f5e9; color: #1A7A3C; border-color: #1A7A3C; }
+.export-btn-green:hover { background: #d0edda; }
+
+.compact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 4px;
+  border-bottom: 1px solid #f0f2f5;
+  font-size: 13px;
+}
+
+/* Mobil */
+@media (max-width: 780px) {
+  .report-two-col {
+    grid-template-columns: 1fr;
+  }
+  .rscard {
+    padding: 16px 18px;
+  }
+  .rsbars-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 480px) {
+  .rsbars-grid {
+    grid-template-columns: 1fr;
+  }
+  .rscard-right {
+    align-items: flex-start;
+  }
+}
+
+/* ─── Ajánlat blokk ─── */
+.ajanlat-block { background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px 24px;margin-bottom:16px; }
+.ajanlat-section-title { font-size:16px;font-weight:800;color:#102536;margin-bottom:6px; }
+.ajanlat-desc { font-size:13px;color:#667084;margin-bottom:14px; }
+
+/* ─── Kész gomb ─── */
+.kesz-btn { background:#1f9d55;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:800;cursor:pointer; }
+.kesz-btn:hover { background:#177a42; }
+.kesz-banner { display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#1f9d55,#14a085);color:#fff;border-radius:10px;padding:14px 20px;margin-bottom:14px; }
+.kesz-visszavon-btn { background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer; }
+
+/* ─── Mobil ajánlat ─── */
+@media (max-width: 640px) {
+  .ajanlat-block { padding: 14px 12px; }
+}
+
+.hurok-inner-header .grid-cell,
+.avk-inner-header .grid-cell {
+  min-height: 22px !important;
+  padding: 4px 6px !important;
+  background: #102536 !important;
+  color: #fff !important;
+}
+
+/* ─── Kompakt helyiség sor ──────────────────────────────────── */
+.room-header-row {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #102536;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: 2px;
+}
+.room-header-cell {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  padding: 3px 4px;
+  text-align: center;
+}
+.room-compact-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-top: none;
+}
+.room-compact-row:last-child {
+  border-radius: 0 0 6px 6px;
+}
+.room-compact-cell {
+  padding: 5px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  font-size: 12px;
+  min-width: 0;
+  background: #f8f9fa;
+}
+.room-compact-cell:focus {
+  outline: none;
+  border-color: var(--blue);
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .room-header-row {
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .room-compact-row {
+    display: flex;
+    overflow-x: auto;
+    padding: 4px 8px;
+  }
+  .room-compact-cell {
+    flex-shrink: 0;
+  }
+}
+
+/* ─── Room wrapper görgetéshez ─────────────────────────────── */
+#roomList {
+  overflow-x: auto;
+}
+.room-header-row,
+.room-compact-row {
+  min-width: 500px;
 }

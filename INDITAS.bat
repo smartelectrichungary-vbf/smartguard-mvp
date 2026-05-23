@@ -1,8 +1,8 @@
 @echo off
 echo SMARTGuard szerver inditasa...
 echo.
-echo Megnyitas: http://127.0.0.1:5000
-echo Telefon:   http://192.168.0.102:5000
+echo PC:      http://127.0.0.1:5000
+echo Telefon: lsd a fekete ablakban
 echo.
 echo Leallitas: Ctrl+C
 echo.

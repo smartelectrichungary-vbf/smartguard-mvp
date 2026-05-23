@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0f5d8f" />
     <meta http-equiv="Cache-Control" content="no-store" />
     <title>SMARTGuard helyszíni MVP</title>
-    <link rel="stylesheet" href="./styles.css?v=22" />
+    <link rel="stylesheet" href="./styles.css?v=24" />
   </head>
   <body>
     <div class="app-shell">
@@ -24,14 +24,16 @@
           <button class="nav-item" data-view="hurokTable">Hurok + EPH</button>
           <button class="nav-item" data-view="avkTable">AVK</button>
           <button class="nav-item" data-view="elosztoTable">Elosztó</button>
-          <button class="nav-item" data-view="alapdok">Alapdokumentáció</button>
-          <button class="nav-item" data-view="protocol">Jegyzőkönyvek</button>
+          <button class="nav-item" data-view="alapdok">Alapdok</button>
+          <button class="nav-item" data-view="protocol">Protokoll</button>
           <button class="nav-item" data-view="reports">Riport</button>
+          <button class="nav-item" data-view="ajanlat">Ajánlat</button>
           <button class="nav-item" data-view="settings">Beállítások</button>
         </nav>
         <section class="site-panel">
           <label>Ügyfél <input id="customerName" type="text" autocomplete="organization" /></label>
           <label>Telephely <input id="siteAddress" type="text" autocomplete="street-address" /></label>
+          <label>Munkaszám <input id="munkaszam" type="text" placeholder="pl. SPAR-25/123" /></label>
           <label>Vizsgálat dátuma <input id="inspectionDate" type="date" /></label>
           <label>Hurok jegyzőkönyv <input id="protocolHurok" type="text" readonly /></label>
           <label>AVK jegyzőkönyv <input id="protocolAvk" type="text" readonly /></label>
@@ -42,18 +44,26 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Élő helyszíni státusz</p>
+            <p class="eyebrow" id="topbarEyebrow">Élő helyszíni státusz</p>
             <h1 id="siteTitle">SMARTGuard</h1>
           </div>
           <div class="topbar-actions">
-            <div class="version-badge">Stabil táblázatos MVP v22</div>
+            <div class="version-badge" id="versionBadge">SMARTGuard v24</div>
             <div class="sync-state" id="syncState">Mentve</div>
           </div>
         </header>
 
         <!-- ÁTTEKINTÉS -->
         <section id="dashboard" class="view active">
-          <div class="score-hero colorful">
+                    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+            <button id="keszBtn" class="kesz-btn">✓ Kész – Lezárom</button>
+          </div>
+          <div id="keszBanner" class="kesz-banner" style="display:none">
+            <span style="font-size:24px">✅</span>
+            <div style="flex:1"><strong style="display:block;font-size:15px;font-weight:800">Jegyzőkönyv lezárva!</strong><span id="keszDatum" style="font-size:12px;opacity:.85"></span></div>
+            <button id="visszavonBtn" class="kesz-visszavon-btn">Visszavonás</button>
+          </div>
+<div class="score-hero colorful">
             <div>
               <p class="eyebrow">SMARTScore</p>
               <div class="score-number"><span id="smartScore">0</span>%</div>
@@ -272,39 +282,34 @@
 
         <!-- RIPORT -->
         <section id="reports" class="view">
-          <div class="report-hero">
-            <div>
-              <p class="eyebrow">Vezetői összefoglaló</p>
-              <h2>SMARTGuard állapotértékelés</h2>
-              <p id="reportIntro"></p>
-            </div>
-            <div class="report-score"><span id="reportScore">0</span>%</div>
-          </div>
-          <div id="reportBars" class="report-bars"></div>
-          <div class="report-grid">
+          <!-- Összefoglaló kártya -->
+          <div id="reportSummaryCard" class="report-summary-card"></div>
+
+          <!-- Kategória progress bárok -->
+          <div id="reportBars" class="report-bars-section"></div>
+
+          <!-- Hibák -->
+          <div class="report-two-col">
             <section class="report-panel">
               <h2>Hibák és hiányos adatok</h2>
               <div id="reportPriorities"></div>
-            </section>
+            
             <section class="report-panel">
-              <h2>Export</h2>
-              <p>Word jegyzetek egy kattintással, vagy PDF nyomtatás.</p>
-              <button class="primary wide" id="downloadAllWord">⬇ Mindkét Word letöltése (.zip)</button>
-              <button class="secondary wide" style="margin-top:8px" id="downloadHurokWord">⬇ Hurok + EPH Word</button>
-              <button class="secondary wide" style="margin-top:8px" id="downloadAvkWord">⬇ AVK Word</button>
-              <button class="secondary wide" style="margin-top:8px;background:#e8f5e9;color:#1A7A3C;border:1px solid #1A7A3C" id="downloadReportWord">⬇ Vezetői kiértékelő Word</button>
-              <hr style="margin:14px 0;border-color:#e0e0e0">
-              <button class="primary" id="printExecutive">PDF nyomtatás</button>
-              <button class="secondary" id="downloadJson">Adatcsomag letöltés</button>
+              <h2>Dokumentumok letöltése</h2>
+              <div class="export-buttons">
+                <button class="export-btn export-btn-primary" id="downloadAllWord">⬇ Hurok + AVK Word</button>
+                <button class="export-btn" id="downloadHurokWord">⬇ Hurok + EPH Word</button>
+                <button class="export-btn" id="downloadAvkWord">⬇ AVK Word</button>
+                <button class="export-btn" id="downloadAlapdokWord2">⬇ Alapdokumentáció Word</button>
+                <button class="export-btn export-btn-green" id="downloadReportWord">⬇ Vezetői kiértékelő Word</button>
+                <hr style="border-color:#e5e9ef;margin:8px 0">
+                <button class="export-btn export-btn-primary" id="downloadPdf">⬇ PDF letöltése</button>
+                <button class="export-btn" id="printExecutive">🖨 Nyomtatás</button>
+                <button class="export-btn" id="downloadJson">⬇ Adatcsomag (.json)</button>
+              </div>
             </section>
+          </section>
           </div>
-          <article id="printArea" class="print-area">
-            <h2>Smart VBF – Vezetői kiértékelés</h2>
-            <p><strong id="printCustomer"></strong></p>
-            <p id="printSite"></p>
-            <p id="printDate"></p>
-            <div id="printSummary"></div>
-          </article>
         </section>
 
         <!-- BEÁLLÍTÁSOK -->
@@ -343,6 +348,21 @@
             </section>
           </div>
         </section>
+
+        <!-- AJÁNLAT -->
+        <section id="ajanlat" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Helyszíni árajánlat</p>
+              <h2>Javítási és karbantartási ajánlat</h2>
+            </div>
+            <button class="primary" id="downloadAjanlat">⬇ Ajánlat PDF letöltése</button>
+          </div>
+          <div class="ajanlat-block"><h3 class="ajanlat-section-title">🔧 Hibajavítás – tételenként</h3><p class="ajanlat-desc">Az azonosított hibák alapján automatikusan generálva. Adj meg árat azokhoz amit javítani fogsz.</p><div id="ajanlatHibaList"></div></div>
+          <div class="ajanlat-block"><h3 class="ajanlat-section-title">⚡ Ajánlható szolgáltatások</h3><p class="ajanlat-desc">Pipáld be amit ajánlani szeretnél. Az automatikus javaslatok már be vannak jelölve.</p><div id="ajanlatSzolgList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;"></div></div>
+          <div class="ajanlat-block" style="border:2px solid #1F497D;background:linear-gradient(135deg,#f0f5fb,#fff)"><h3 class="ajanlat-section-title" style="color:#1F497D">🛡 SMART Guard modulok</h3><p class="ajanlat-desc">Az ügyfél számára ajánlható Smart Electric szolgáltatási csomagok. A rendszer automatikusan jelöli a javasoltakat a vizsgálat eredménye alapján.</p><div id="smartGuardModulok" style="display:flex;flex-direction:column;gap:8px;"></div></div>
+          <div class="ajanlat-block" style="border:2px solid #102536"><h3 class="ajanlat-section-title">💰 Összesítő</h3><div id="ajanlatSummary"></div><div style="margin-top:12px;"><label style="font-size:13px;">ÁFA kulcs: <select id="ajanlatAfa" style="padding:4px 8px;border-radius:6px;border:1px solid #cbd5e1;"><option value="0.27">27%</option><option value="0">0% (ÁFA mentes)</option></select></label></div></div>
+        </section>
       </main>
     </div>
 
@@ -371,6 +391,6 @@
       </div>
     </div>
 
-    <script src="./app.js?v=22"></script>
+    <script src="./app.js?v=24"></script>
   </body>
 </html>

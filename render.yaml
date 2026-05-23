@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: smartguard-mvp
-    env: node
-    buildCommand: npm install
-    startCommand: npm start
+    name: smartguard-vbf
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
     envVars:
-      - key: NODE_ENV
-        value: production
+      - key: PYTHON_VERSION
+        value: "3.11"

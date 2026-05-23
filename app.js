@@ -76,9 +76,10 @@ function autoStatus(breaker, valueOhm, fault, severity) {
 // ─── SCORING ─────────────────────────────────────────────────────────────────
 const defaultScoring = {
   categories: [
-    { id: "hurok", name: "Hurok + EPH", weight: 50 },
-    { id: "avk",   name: "AVK",         weight: 20 },
-    { id: "eloszto", name: "Elosztók",  weight: 25 },
+    { id: "hurok", name: "Hurok",        weight: 30 },
+    { id: "eph",   name: "EPH",          weight: 20 },
+    { id: "avk",   name: "AVK",          weight: 20 },
+    { id: "eloszto", name: "Elosztók",   weight: 25 },
     { id: "dok",   name: "Dokumentáció", weight: 5 },
   ],
   penalties: { A: 25, B: 5, C: 3, D: 1 },
@@ -90,8 +91,8 @@ const defaultScoring = {
   ],
 };
 
-const storageKey = "smartguard-mvp-state-v10";
-const legacyKeys = ["smartguard-mvp-state-v9","smartguard-mvp-state-v8","smartguard-mvp-state-v7"];
+const storageKey = "smartguard-mvp-state-v14";
+const legacyKeys = ["smartguard-mvp-state-v13","smartguard-mvp-state-v9","smartguard-mvp-state-v8"];
 const channel = "BroadcastChannel" in window ? new BroadcastChannel("smartguard-mvp") : null;
 const avkDefaultTypes = ["Schneider","Schrack","Omusystem","ETI","EATON","ABB","Stilo","Hager","Legrand","Tracon"];
 
@@ -151,39 +152,25 @@ const defaultAlapdok = {
 };
 
 const initialState = {
-  customerName: "SPAR Kft.",
-  siteAddress: "Eger - 802 SM",
+  customerName: "",
+  siteAddress: "",
+  munkaszam: "",
   inspectionDate: new Date().toISOString().slice(0, 10),
   protocolNumbers: { hurok: "", avk: "", eloszto: "" },
   protocolBodies:  { hurok: "", avk: "", eloszto: "" },
   alapdok: clone(defaultAlapdok),
-  rooms: [
-    { id: "aggregator_gephaz", name: "Aggregátor gépház", level: "", tuzvedelem: "–", defaultDistributor: "FE", defaultBreakerDugalj: "B16", defaultBreakerVilagitas: "B10" },
-    { id: "kazanhaz",          name: "Kazánház",          level: "", tuzvedelem: "–", defaultDistributor: "FE", defaultBreakerDugalj: "B16", defaultBreakerVilagitas: "B10" },
-    { id: "fe",                name: "FE",                level: "főelosztó", tuzvedelem: "–", defaultDistributor: "FE", defaultBreakerDugalj: "", defaultBreakerVilagitas: "" },
-  ],
+  rooms: [],
   avkTypes: avkDefaultTypes,
   scoring: clone(defaultScoring),
   collapsedRooms: {},
   collapsedAvkDists: {},
-  hurokRows: [
-    { id: uid(), no:1, roomId:"aggregator_gephaz", type:"eph",   point:"Fém bejárati ajtó EPH", modeClass:"II", distributor:"FE", breaker:"",    pe:"-",  valueOhm:"",    status:"NMF", severity:"D", fault:"Potenciálrögzítő földelés hiányzik" },
-    { id: uid(), no:2, roomId:"kazanhaz",          type:"hurok", point:"Kötődoboz",              modeClass:"I",  distributor:"FE", breaker:"B16", pe:"-",  valueOhm:"",    status:"NMF", severity:"C", fault:"Nyitott kötődoboz" },
-  ],
-  avkRows: [
-    { id: uid(), no:1, distributorId:"fe_eloszto", place:"FE", mark:"29", type:"Schrack", inA:"16", deltaMa:"30", unV:"230", poles:"2", iDeltaMa:"28,5", timeMs:"168,0", mp:"-", szv:"+", status:"NMF", severity:"B", fault:"NEM OLD LE." },
-  ],
-  elosztoRows: [
-    { id:"fe_eloszto", no:1, name:"FE elosztó", voltage:"400", mainFuse:"250/630",
-      ce:"MF", warningLabel:"MF", thermal:"MF", ip:"NMF", evMode:"TN-C-S",
-      documentation:"NMF", status:"NMF",
-      hurokL1:"", hurokL2:"", hurokL3:"", feszL1:"",
-      faults:[
-        { id:uid(), text:"Rögzítetlen WAGO-s kötések találhatók az elosztóban", severity:"D" },
-        { id:uid(), text:"Tervdokumentáció hiányzik", severity:"D" },
-      ],
-    },
-  ],
+  collapsedEloszto: {},
+  hurokRows: [],
+  avkRows: [],
+  elosztoRows: [],
+  lezarva: false,
+  lezarvaDatum: "",
+  ajanlat: { hibaArak:{}, szolgChecked:{}, szolgArak:{}, sgChecked:{}, sgArak:{}, afa:0.27 },
 };
 
 let state = loadState();
@@ -229,14 +216,8 @@ function migrateState(loaded) {
 }
 
 function ensureMinimumRows(target) {
-  target.rooms.forEach(room => {
-    const existing = target.hurokRows.filter(r => r.roomId === room.id).length;
-    for (let i = existing; i < 10; i++) target.hurokRows.push(emptyHurokRow(target.hurokRows.length+1, room.id, room));
-  });
-  target.elosztoRows.forEach(dist => {
-    const existing = target.avkRows.filter(r => r.distributorId === dist.id).length;
-    for (let i = existing; i < 20; i++) target.avkRows.push(emptyAvkRow(target.avkRows.length+1, dist.id, dist.name, target.avkTypes[0]||"Schrack"));
-  });
+  // Nem töltünk fel automatikusan üres sorokat.
+  // A felhasználó a "+ 10 sor" gombokkal adhat hozzá sorokat.
 }
 
 function emptyHurokRow(no, roomId, room, type) {
@@ -276,9 +257,12 @@ function makeProtocolNumber(source, suffix) {
 // ─── HIBÁK & HIÁNYOS ADATOK ──────────────────────────────────────────────────
 
 function allFaultRows() {
-  // Hibák (severity kitöltve)
-  const hurokFaults = state.hurokRows.filter(r => r.severity && isFilledHurok(r))
+  // Hurok hibák (type === "hurok")
+  const hurokFaults = state.hurokRows.filter(r => r.severity && isFilledHurok(r) && r.type !== "eph")
     .map(r => ({ category:"hurok", severity:r.severity, text:`${roomName(r.roomId)} – ${r.point}: ${r.fault}`, isNA:false }));
+  // EPH hibák (type === "eph")
+  const ephFaults = state.hurokRows.filter(r => r.severity && isFilledHurok(r) && r.type === "eph")
+    .map(r => ({ category:"eph", severity:r.severity, text:`${roomName(r.roomId)} – ${r.point}: ${r.fault}`, isNA:false }));
   const avkFaults = state.avkRows.filter(r => r.severity && isFilledAvk(r))
     .map(r => ({ category:"avk", severity:r.severity, text:`${r.place} – ${r.mark}: ${r.fault}`, isNA:false }));
   const elosztóFaults = [];
@@ -287,13 +271,15 @@ function allFaultRows() {
   const dokFaults = state.elosztoRows.filter(r=>r.documentation==="NMF")
     .map(r => ({ category:"dok", severity:"D", text:`${r.name}: tervdokumentáció hiányzik`, isNA:false }));
 
-  // NA sorok (Nincs adat)
-  const hurokNA = state.hurokRows.filter(r => r.status==="NA" && isFilledHurok(r))
+  // NA sorok
+  const hurokNA = state.hurokRows.filter(r => r.status==="NA" && isFilledHurok(r) && r.type !== "eph")
     .map(r => ({ category:"hurok", severity:"NA", text:`${roomName(r.roomId)} – ${r.point}`, isNA:true }));
+  const ephNA = state.hurokRows.filter(r => r.status==="NA" && isFilledHurok(r) && r.type === "eph")
+    .map(r => ({ category:"eph", severity:"NA", text:`${roomName(r.roomId)} – ${r.point}`, isNA:true }));
   const avkNA = state.avkRows.filter(r => r.status==="NA" && isFilledAvk(r))
     .map(r => ({ category:"avk", severity:"NA", text:`${r.place} – ${r.mark}`, isNA:true }));
 
-  return [...hurokFaults, ...avkFaults, ...elosztóFaults, ...dokFaults, ...hurokNA, ...avkNA];
+  return [...hurokFaults, ...ephFaults, ...avkFaults, ...elosztóFaults, ...dokFaults, ...hurokNA, ...ephNA, ...avkNA];
 }
 
 function categoryScore(catId) {
@@ -305,7 +291,8 @@ function categoryScore(catId) {
 }
 
 function hasCategoryData(id) {
-  if (id==="hurok")   return state.hurokRows.some(isFilledHurok);
+  if (id==="hurok")   return state.hurokRows.some(r => isFilledHurok(r) && r.type !== "eph");
+  if (id==="eph")     return state.hurokRows.some(r => isFilledHurok(r) && r.type === "eph");
   if (id==="avk")     return state.avkRows.some(isFilledAvk);
   if (id==="eloszto") return state.elosztoRows.length > 0;
   if (id==="dok")     return state.elosztoRows.some(r=>r.documentation);
@@ -345,16 +332,18 @@ function severityColorHex(s) { return {A:"#c92a2a",B:"#e67700",C:"#f2b705",D:"#1
 function render() {
   renderSite(); renderDashboard(); renderRooms(); renderAvkTypes();
   renderHurokTable(); renderAvkTable(); renderElosztoTable();
-  renderProtocol(); renderReports(); renderSettings(); renderAlapdok();
+  renderProtocol(); renderReports(); renderSettings(); renderAlapdok(); renderAjanlat(); renderKeszGomb();
 }
 
 function renderScoreOnly() {
+  renderKeszGomb();
   const score = totalScore();
   document.querySelector("#smartScore").textContent = score;
   document.querySelector("#qualification").textContent = `${qualification(score)} – intézkedési szint: ${actionLevel()}`;
   document.querySelector("#categoryGrid").innerHTML = categories().map(categoryCard).join("");
   renderCriticalList();
   renderClientViews();
+  renderReports(); // Riport fül is azonnal frissül!
 }
 
 function renderCriticalList() {
@@ -383,6 +372,7 @@ function renderCriticalList() {
 function renderSite() {
   document.querySelector("#customerName").value   = state.customerName;
   document.querySelector("#siteAddress").value    = state.siteAddress;
+  document.querySelector("#munkaszam") && (document.querySelector("#munkaszam").value = state.munkaszam || "");
   document.querySelector("#inspectionDate").value = state.inspectionDate;
   document.querySelector("#protocolHurok").value  = state.protocolNumbers.hurok;
   document.querySelector("#protocolAvk").value    = state.protocolNumbers.avk;
@@ -410,25 +400,25 @@ function categoryCard(c) {
 
 // ─── HELYISÉGEK ──────────────────────────────────────────────────────────────
 function renderRooms() {
-  document.querySelector("#roomList").innerHTML = state.rooms.map(room => `
-    <div class="room-row-extended">
-      <div class="room-row-main">
-        <input data-room-name="${room.id}" value="${escapeHtml(room.name)}" placeholder="Helyiség neve" />
-        <input data-room-level="${room.id}" value="${escapeHtml(room.level||"")}" placeholder="szint/zóna" />
-        <span class="room-count">${state.hurokRows.filter(r=>r.roomId===room.id&&isFilledHurok(r)).length} kitöltve</span>
-        <button class="delete-btn" data-room-delete="${room.id}">×</button>
-      </div>
-      <div class="room-row-defaults">
-        <label>Elosztó: <input data-room-dist="${room.id}" value="${escapeHtml(room.defaultDistributor||"")}" placeholder="pl. FE" /></label>
-        <label>Dugalj megszakító: <input data-room-breaker-dugalj="${room.id}" value="${escapeHtml(room.defaultBreakerDugalj||"")}" placeholder="pl. B16" /></label>
-        <label>Világítás megszakító: <input data-room-breaker-vilagitas="${room.id}" value="${escapeHtml(room.defaultBreakerVilagitas||"")}" placeholder="pl. B10" /></label>
-        <label>EBF tűzvédelmi osztály:
-          <select data-room-tuzvedelem="${room.id}">
-            ${TUZVEDELEM_OSZTALYOK.map(o=>`<option value="${o}" ${(room.tuzvedelem||"–")===o?"selected":""}>${o}</option>`).join("")}
-          </select>
-        </label>
-        <button class="secondary room-fill-btn" data-fill-room="${room.id}">⚡ Tömeges kitöltés</button>
-      </div>
+  const headerRow = `<div class="room-header-row">
+    <div class="room-header-cell" style="flex:1.5">Helyiség neve</div>
+    <div class="room-header-cell" style="width:80px">Elosztó</div>
+    <div class="room-header-cell" style="width:70px">Dugalj</div>
+    <div class="room-header-cell" style="width:70px">Világ.</div>
+    <div class="room-header-cell" style="width:90px">EBF osztály</div>
+    <div class="room-header-cell" style="width:36px"></div>
+  </div>`;
+
+  document.querySelector("#roomList").innerHTML = headerRow + state.rooms.map(room => `
+    <div class="room-compact-row">
+      <input class="room-compact-cell" style="flex:1.5" data-room-name="${room.id}" value="${escapeHtml(room.name)}" placeholder="Helyiség neve" />
+      <input class="room-compact-cell" style="width:80px" data-room-dist="${room.id}" value="${escapeHtml(room.defaultDistributor||"")}" placeholder="FE" />
+      <input class="room-compact-cell" style="width:70px" data-room-breaker-dugalj="${room.id}" value="${escapeHtml(room.defaultBreakerDugalj||"")}" placeholder="B16" />
+      <input class="room-compact-cell" style="width:70px" data-room-breaker-vilagitas="${room.id}" value="${escapeHtml(room.defaultBreakerVilagitas||"")}" placeholder="B10" />
+      <select class="room-compact-cell" style="width:90px" data-room-tuzvedelem="${room.id}">
+        ${TUZVEDELEM_OSZTALYOK.map(o=>`<option value="${o}" ${(room.tuzvedelem||"–")===o?"selected":""}>${o}</option>`).join("")}
+      </select>
+      <button class="row-delete-btn" data-room-delete="${room.id}" title="Törlés">×</button>
     </div>`).join("");
 }
 
@@ -440,13 +430,28 @@ function renderAvkTypes() {
 // ─── HUROK TÁBLA ─────────────────────────────────────────────────────────────
 // Fejléc csak a nyitott szekció BELSEJÉBEN, közvetlenül a sorok felett
 function hurokHeaderRow() {
-  const cols = ["Ssz.","Típus","Mérési pont / megnevezés","Mód/oszt.","Elosztó","Megszakító","PE folyt.","Érték [Ω]","Max Zs [Ω]","Minősítés","Hiba kat.","Hiba leírás"];
-  return `<div class="grid-row hurok-row-12 hurok-inner-header">
-    ${cols.map(h=>`<div class="grid-cell grid-head">${h}</div>`).join("")}
-  </div>`;
+  const cols = ["Ssz.","Típus","Mérési pont / megnevezés","Mód/oszt.","Elosztó","Megszakító","PE folyt.","Érték [Ω]","Max Zs [Ω]","Minősítés","Hiba kat.","Hiba leírás",""];
+  const st = 'background:#102536;color:#fff;font-size:10px;font-weight:700;' +
+             'text-transform:uppercase;padding:4px 6px;' +
+             'align-items:center;overflow:hidden;';
+  return '<div class="grid-row hurok-row-13" style="background:#102536;">' +
+    cols.map(h => '<div style="' + st + '">' + h + '</div>').join('') +
+    '</div>';
 }
 
 function renderHurokTable() {
+  const el = document.querySelector("#hurokGrid");
+
+  if (state.rooms.length === 0) {
+    el.innerHTML = `<div style="padding:32px;text-align:center;color:#667084;background:#fff;border-radius:8px;border:1px solid #d7dee8">
+      <div style="font-size:32px;margin-bottom:12px">🏠</div>
+      <strong style="display:block;font-size:16px;color:#172331;margin-bottom:8px">Még nincs helyiség felvéve</strong>
+      <p style="margin:0;font-size:14px">A hurok adatok helyiségenkéntcsoportosítva jelennek meg.<br>
+      Kattints a <strong>„+ Új helyiség"</strong> gombra vagy menj a <strong>Helyiségek</strong> fülre.</p>
+    </div>`;
+    return;
+  }
+
   const grouped = {};
   state.rooms.forEach(r => { grouped[r.id] = []; });
   grouped["__egyeb__"] = [];
@@ -465,7 +470,7 @@ function renderHurokTable() {
       const limit = BREAKER_LIMITS[(row.breaker||"").trim().toUpperCase()];
       const limitStr = limit !== undefined ? limit.toFixed(2) : "–";
       const displayNo = localIdx + 1; // 1-től indul minden helyiségben
-      return `<div class="grid-row hurok-row-12">
+      return `<div class="grid-row hurok-row-13">
         ${cell(`<span class="row-no-badge">${displayNo}</span>`)}
         ${cell(`<select data-hurok="${row.id}" data-field="type"><option value="hurok" ${row.type==="hurok"?"selected":""}>Hurok</option><option value="eph" ${row.type==="eph"?"selected":""}>EPH</option></select>`)}
         ${cell(`<input data-hurok="${row.id}" data-field="point" value="${escapeHtml(row.point)}">`)}
@@ -478,6 +483,7 @@ function renderHurokTable() {
         ${cell(selectHtml("hurok",row.id,"status",["","MF","NMF","NA"],row.status))}
         ${cell(selectHtml("hurok",row.id,"severity",["","A","B","C","D"],row.severity))}
         ${cell(`<input data-hurok="${row.id}" data-field="fault" value="${escapeHtml(row.fault)}">`)}
+        ${cell(`<button class="row-delete-btn" data-delete-hurok="${row.id}" title="Sor törlése">×</button>`)}
       </div>`;
     }).join("");
 
@@ -497,8 +503,10 @@ function renderHurokTable() {
             <button class="room-add-btn" data-add-room-rows="${room.id}" data-row-type="hurok">+ 10 Hurok sor</button>
             <button class="room-add-btn room-add-eph" data-add-room-rows="${room.id}" data-row-type="eph">+ 10 EPH sor</button>
           </div>
-          ${hurokHeaderRow()}
-          ${rowsHtml}` : ""}
+          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-y:visible;">
+            ${hurokHeaderRow()}
+            ${rowsHtml}
+          </div>` : ""}
       </div>
     </div>`;
   }).join("");
@@ -508,13 +516,29 @@ function renderHurokTable() {
 
 // ─── AVK TÁBLA ───────────────────────────────────────────────────────────────
 function avkHeaderRow() {
-  const cols = ["Ssz.","Jele","Típus","In [A]","Δn [mA]","Un [V]","pólus","IΔn [mA]","t [ms]","MP","SZV","Minősítés","Hiba kat.","Hiba"];
-  return `<div class="grid-row avk-row-14 avk-inner-header">
-    ${cols.map(h=>`<div class="grid-cell grid-head">${h}</div>`).join("")}
-  </div>`;
+  const cols = ["Ssz.","Jele","Típus","In [A]","Δn [mA]","Un [V]","pólus","IΔn [mA]","t [ms]","MP","SZV","Minősítés","Hiba kat.","Hiba",""];
+  const st = 'background:#102536;color:#fff;font-size:10px;font-weight:700;' +
+             'text-transform:uppercase;padding:4px 6px;' +
+             'align-items:center;overflow:hidden;';
+  return '<div class="grid-row avk-row-15" style="background:#102536;">' +
+    cols.map(h => '<div style="' + st + '">' + h + '</div>').join('') +
+    '</div>';
 }
 
 function renderAvkTable() {
+  const el = document.querySelector("#avkGrid");
+
+  // Ha nincs elosztó, útmutató
+  if (state.elosztoRows.length === 0) {
+    el.innerHTML = `<div style="padding:32px;text-align:center;color:#667084;background:#fff;border-radius:8px;border:1px solid #d7dee8">
+      <div style="font-size:32px;margin-bottom:12px">⚡</div>
+      <strong style="display:block;font-size:16px;color:#172331;margin-bottom:8px">Még nincs elosztó felvéve</strong>
+      <p style="margin:0;font-size:14px">Az AVK adatok elosztónként csoportosítva jelennek meg.<br>
+      Először menj az <strong>Elosztó</strong> fülre és adj hozzá egy elosztót.</p>
+    </div>`;
+    return;
+  }
+
   const grouped = {};
   state.elosztoRows.forEach(d => { grouped[d.id] = []; });
   grouped["__egyeb__"] = [];
@@ -541,8 +565,10 @@ function renderAvkTable() {
         }
       }
       const displayNo = localIdx + 1;
+      const emptyInDist = rows.filter(r => !isFilledAvk(r)).length;
+      const canAddMore = emptyInDist < 20;
       return `
-      <div class="grid-row avk-row-14">
+      <div class="grid-row avk-row-15">
         ${cell(`<span class="row-no-badge">${displayNo}</span>`)}
         ${cell(`<input data-avk="${row.id}" data-field="mark" value="${escapeHtml(row.mark)}">`)}
         ${cell(selectHtml("avk",row.id,"type",state.avkTypes,row.type))}
@@ -557,6 +583,7 @@ function renderAvkTable() {
         ${cell(selectHtml("avk",row.id,"status",["","MF","NMF","NA"],row.status))}
         ${cell(selectHtml("avk",row.id,"severity",["","A","B","C","D"],row.severity))}
         ${cell(`<input data-avk="${row.id}" data-field="fault" value="${escapeHtml(row.fault)}">`)}
+        ${cell(`<button class="row-delete-btn" data-delete-avk="${row.id}" title="Sor törlése">×</button>`)}
       </div>`;
     }).join("");
 
@@ -573,8 +600,10 @@ function renderAvkTable() {
           <div class="room-section-actions">
             <button class="room-add-btn" data-add-avk-dist-rows="${dist.id}">+ 10 AVK sor</button>
           </div>
-          ${avkHeaderRow()}
-          ${rowsHtml}` : ""}
+          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-y:visible;">
+            ${avkHeaderRow()}
+            ${rowsHtml}
+          </div>` : ""}
       </div>
     </div>`;
   }).join("");
@@ -654,77 +683,82 @@ function renderReports() {
   const score      = totalScore();
   const qual       = qualification(score);
   const al         = actionLevel();
-  const scoreColor = categoryColorHex(score);
+  const scoreHex   = categoryColorHex(score);
   const faults     = allFaultRows();
   const errors     = faults.filter(r=>!r.isNA).sort((a,b)=>"ABCD".indexOf(a.severity)-"ABCD".indexOf(b.severity));
-  const naHurok    = faults.filter(r=>r.isNA&&r.category==="hurok");
-  const naAvk      = faults.filter(r=>r.isNA&&r.category==="avk");
+  const naItems    = faults.filter(r=>r.isNA);
 
-  document.querySelector("#reportScore").textContent  = score;
-  document.querySelector("#reportIntro").textContent  = `${state.customerName} / ${state.siteAddress} – ${qual}, intézkedési szint: ${al}`;
+  // ── Összefoglaló kártya ──────────────────────────────────
+  const alColor = {Azonnali:"#c92a2a", Sürgős:"#e67700", Ütemezett:"#f2b705", Tervezett:"#1f9d55"}[al]||"#8792a2";
+  const scoreQual = score >= 90 ? "Kiváló" : score >= 75 ? "Jó" : score >= 59 ? "Megfelelő" : score >= 39 ? "Gyenge" : "Nem megfelelő";
 
-  document.querySelector("#reportBars").innerHTML = categories().map(c => {
-    const v = categoryScore(c.id);
-    return `<div class="report-bar-row">
-      <strong>${c.name}</strong>
-      <div class="bar-track"><div class="bar-fill" style="width:${v}%;background:${categoryColor(v)}"></div></div>
-      <span style="color:${categoryColor(v)};font-weight:800">${v}%</span>
+  document.querySelector("#reportSummaryCard").innerHTML = `
+    <div class="rscard">
+      <div class="rscard-left">
+        <div class="rscard-eyebrow">SMARTGuard Állapotértékelés</div>
+        <div class="rscard-customer">${escapeHtml(state.customerName)||"–"}</div>
+        <div class="rscard-site">${escapeHtml(state.siteAddress)||""} ${state.inspectionDate ? `· ${state.inspectionDate}` : ""}</div>
+      </div>
+      <div class="rscard-right">
+        <div class="rscard-score" style="color:${scoreHex}">${score}<span class="rscard-pct">%</span></div>
+        <div class="rscard-qual">${qual}</div>
+        <div class="rscard-al" style="background:${alColor}">⚡ ${al} intézkedés</div>
+      </div>
     </div>`;
-  }).join("");
 
+  // ── Kategória progress bárok ─────────────────────────────
+  document.querySelector("#reportBars").innerHTML = `
+    <div class="rsbars-grid">
+      ${categories().map(c => {
+        const v = categoryScore(c.id);
+        const hex = categoryColorHex(v);
+        const faultCount = faults.filter(r=>r.category===c.id&&!r.isNA).length;
+        return `<div class="rsbar-card">
+          <div class="rsbar-header">
+            <span class="rsbar-name">${c.name}</span>
+            <span class="rsbar-pct" style="color:${hex}">${v}%</span>
+          </div>
+          <div class="rsbar-track">
+            <div class="rsbar-fill" style="width:${v}%;background:${hex}"></div>
+          </div>
+          <div class="rsbar-meta">${faultCount > 0 ? `<span style="color:#c92a2a;font-size:11px">⚠ ${faultCount} hiba</span>` : `<span style="color:#1f9d55;font-size:11px">✓ Rendben</span>`}</div>
+        </div>`;
+      }).join("")}
+    </div>`;
+
+  // ── Hibalista ─────────────────────────────────────────────
   let priorityHtml = "";
   if (errors.length) {
-    const avkErrors   = errors.filter(r=>r.category==="avk");
-    const hurokErrors = errors.filter(r=>r.category==="hurok"||r.category==="eloszto"||r.category==="dok");
-    if (avkErrors.length) {
-      priorityHtml += `<div class="fault-section-label">AVK hibák</div>`;
-      priorityHtml += avkErrors.map(f=>`<div class="compact-item"><span>${f.text}</span><span class="pill" style="background:${severityColor(f.severity)}">${f.severity}</span></div>`).join("");
-    }
-    if (hurokErrors.length) {
-      priorityHtml += `<div class="fault-section-label">Hurok és EPH hibák</div>`;
-      priorityHtml += hurokErrors.map(f=>`<div class="compact-item"><span>${f.text}</span><span class="pill" style="background:${severityColor(f.severity)}">${f.severity}</span></div>`).join("");
-    }
+    const grouped = {};
+    errors.forEach(f => {
+      const label = f.category === "avk" ? "AVK hibák"
+        : f.category === "eph" ? "EPH hibák"
+        : f.category === "hurok" ? "Hurok hibák"
+        : f.category === "eloszto" ? "Elosztó hibák"
+        : "Dokumentáció hibák";
+      if (!grouped[label]) grouped[label] = [];
+      grouped[label].push(f);
+    });
+    Object.entries(grouped).forEach(([label, items]) => {
+      priorityHtml += `<div class="fault-section-label">${label}</div>`;
+      priorityHtml += items.map(f=>
+        `<div class="compact-item">
+          <span class="pill" style="background:${severityColor(f.severity)}">${f.severity}</span>
+          <span>${escapeHtml(f.text)}</span>
+        </div>`).join("");
+    });
   } else {
-    priorityHtml = "<p>Nincs rögzített hiba.</p>";
+    priorityHtml = `<div style="padding:16px;text-align:center;color:#1f9d55;font-weight:700">✓ Nincs rögzített hiba</div>`;
   }
-  if (naHurok.length) {
-    priorityHtml += `<div class="na-section-label">Nincs adat – Hurok és EPH</div>`;
-    priorityHtml += naHurok.map(r=>`<div class="compact-item na-item"><span>${r.text}</span><span class="pill pill-na">NA</span></div>`).join("");
-  }
-  if (naAvk.length) {
-    priorityHtml += `<div class="na-section-label">Nincs adat – AVK</div>`;
-    priorityHtml += naAvk.map(r=>`<div class="compact-item na-item"><span>${r.text}</span><span class="pill pill-na">NA</span></div>`).join("");
+  if (naItems.length) {
+    priorityHtml += `<div class="na-section-label">Nincs adat (${naItems.length} tétel)</div>`;
+    priorityHtml += naItems.map(r=>
+      `<div class="compact-item na-item">
+        <span class="pill pill-na">NA</span>
+        <span>${escapeHtml(r.text)}</span>
+      </div>`).join("");
   }
   document.querySelector("#reportPriorities").innerHTML = priorityHtml;
-
-  document.querySelector("#printCustomer").textContent = state.customerName;
-  document.querySelector("#printSite").textContent     = state.siteAddress;
-  document.querySelector("#printDate").textContent     = `Dátum: ${state.inspectionDate}`;
-  document.querySelector("#printSummary").innerHTML = `
-    <div class="print-score-hero" style="background:linear-gradient(135deg,#102536,#1F497D);color:#fff;padding:24px 32px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-      <div>
-        <div style="font-size:13px;font-weight:800;text-transform:uppercase;color:#9fb2c4;margin-bottom:4px">SMARTScore</div>
-        <div style="font-size:72px;font-weight:800;line-height:1">${score}</div>
-        <div style="font-size:22px;color:#dce6ef;margin-top:4px">${qual}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:13px;color:#9fb2c4;margin-bottom:8px">Intézkedési szint</div>
-        <div style="font-size:32px;font-weight:800;color:${scoreColor}">${al}</div>
-        <div style="font-size:13px;color:#9fb2c4;margin-top:8px">${state.inspectionDate}</div>
-      </div>
-    </div>
-    <div style="margin-bottom:20px">
-      ${categories().map(c=>{const v=categoryScore(c.id);const hex=categoryColorHex(v);return `
-        <div style="display:grid;grid-template-columns:200px 1fr 60px;gap:12px;align-items:center;margin-bottom:10px">
-          <span style="font-weight:700;color:#1F497D">${c.name}</span>
-          <div style="background:#e8eef5;border-radius:999px;height:14px;overflow:hidden"><div style="width:${v}%;height:100%;background:${hex};border-radius:999px"></div></div>
-          <span style="font-weight:800;color:${hex};text-align:right">${v}%</span>
-        </div>`;}).join("")}
-    </div>
-    ${errors.length?`<div style="margin-top:16px"><h3 style="color:#1F497D;border-bottom:2px solid #1F497D;padding-bottom:6px">Azonosított hibák</h3>
-      ${errors.map(f=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #eee">
-        <span style="background:${severityColorHex(f.severity)};color:#fff;font-weight:800;padding:3px 8px;border-radius:999px;font-size:12px;min-width:24px;text-align:center">${f.severity}</span>
-        <span style="font-size:14px">${f.text}</span></div>`).join("")}</div>`:""}`;
 }
 
 // ─── PROTOCOL & SETTINGS ─────────────────────────────────────────────────────
@@ -850,13 +884,26 @@ function addAvkRows(count, distributorId) {
   const dist = state.elosztoRows.find(d=>d.id===distributorId);
   for (let i=0;i<count;i++) state.avkRows.push(emptyAvkRow(nextNo(state.avkRows), distributorId, dist?dist.name:"", state.avkTypes[0]||"Schrack"));
 }
+const TABLE_VIEWS = new Set(['hurokTable','avkTable','elosztoTable','rooms','alapdok','protocol','ajanlat']);
+
 function showView(id) {
   document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===id));
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));
+  // Topbar egyszerűsítése beviteli nézetekben
+  const ws = document.querySelector(".workspace");
+  if (TABLE_VIEWS.has(id)) {
+    ws.classList.add("view-table");
+  } else {
+    ws.classList.remove("view-table");
+  }
 }
 
 // ─── WORKSPACE EVENTS ────────────────────────────────────────────────────────
-function isTableCell(t) { return !!(t.dataset.hurok||t.dataset.avk||t.dataset.eloszto||t.dataset.fault); }
+function isTableCell(t) {
+  return !!(t.dataset.hurok || t.dataset.avk || t.dataset.eloszto || t.dataset.fault ||
+            t.dataset.ajanlatHiba || t.dataset.ajanlatSzolgAr || t.dataset.sgAr ||
+            t.closest('#ajanlat'));
+}
 
 function applyWorkspaceValue(t) {
   if (t.dataset.hurok) {
@@ -956,11 +1003,23 @@ function handleWorkspaceClick(event) {
     saveState(); renderHurokTable(); return;
   }
 
-  // + sorok hurokhoz
+  // + sorok hurokhoz – max 20 üres sor helyiségenként
   if (t.dataset.addRoomRows) {
     event.stopPropagation();
-    addHurokRows(10, t.dataset.addRoomRows, t.dataset.rowType||"hurok");
+    const roomId = t.dataset.addRoomRows;
+    const emptyInRoom = state.hurokRows.filter(r => r.roomId === roomId && !isFilledHurok(r)).length;
+    if (emptyInRoom >= 20) {
+      alert("Maximum 20 üres sor lehet egy helyiségben. Előbb töltsd ki a meglévőket!"); return;
+    }
+    const toAdd = Math.min(10, 20 - emptyInRoom);
+    addHurokRows(toAdd, roomId, t.dataset.rowType||"hurok");
     saveState(); renderHurokTable(); return;
+  }
+
+  // Hurok sor törlése
+  if (t.dataset.deleteHurok) {
+    state.hurokRows = state.hurokRows.filter(r => r.id !== t.dataset.deleteHurok);
+    saveState(); renderHurokTable(); renderScoreOnly(); return;
   }
 
   // AVK elosztó toggle
@@ -969,7 +1028,25 @@ function handleWorkspaceClick(event) {
     state.collapsedAvkDists[toggleDist.dataset.toggleAvkDist] = !state.collapsedAvkDists[toggleDist.dataset.toggleAvkDist];
     saveState(); renderAvkTable(); return;
   }
-  if (t.dataset.addAvkDistRows) { event.stopPropagation(); addAvkRows(10, t.dataset.addAvkDistRows); saveState(); renderAvkTable(); return; }
+
+  // + sorok AVK-hoz – max 20 üres sor elosztónként
+  if (t.dataset.addAvkDistRows) {
+    event.stopPropagation();
+    const distId = t.dataset.addAvkDistRows;
+    const emptyInDist = state.avkRows.filter(r => r.distributorId === distId && !isFilledAvk(r)).length;
+    if (emptyInDist >= 20) {
+      alert("Maximum 20 üres sor lehet egy elosztóban. Előbb töltsd ki a meglévőket!"); return;
+    }
+    const toAdd = Math.min(10, 20 - emptyInDist);
+    addAvkRows(toAdd, distId);
+    saveState(); renderAvkTable(); return;
+  }
+
+  // AVK sor törlése
+  if (t.dataset.deleteAvk) {
+    state.avkRows = state.avkRows.filter(r => r.id !== t.dataset.deleteAvk);
+    saveState(); renderAvkTable(); renderScoreOnly(); return;
+  }
 
   // Tömeges kitöltés
   if (t.dataset.fillRoom) {
@@ -1005,8 +1082,104 @@ function updateFault(parentId, faultId, field, value) {
 function updateCategory(id, patch)  { state.scoring.categories=state.scoring.categories.map(c=>c.id===id?Object.assign({},c,patch):c); }
 function updateThreshold(id, min)   { state.scoring.thresholds=state.scoring.thresholds.map(t=>t.id===id?Object.assign({},t,{min}):t); }
 
-function downloadDataPackage() {
-  const blob = new Blob([JSON.stringify({
+function generatePdfHtml() {
+  const score = totalScore();
+  const qual = qualification(score);
+  const al = actionLevel();
+  const scoreHex = categoryColorHex(score);
+  const faults = allFaultRows();
+  const errors = faults.filter(r=>!r.isNA).sort((a,b)=>"ABCD".indexOf(a.severity)-"ABCD".indexOf(b.severity));
+  const alColor = {Azonnali:"#c92a2a",Sürgős:"#e67700",Ütemezett:"#f2b705",Tervezett:"#1f9d55"}[al]||"#8792a2";
+
+  return `<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>SMARTGuard – Vezetői kiértékelés</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 14px; color: #1a2332; background: #fff; padding: 24px; max-width: 800px; margin: 0 auto; }
+  .header { background: linear-gradient(135deg, #102536, #1F497D); color: #fff; border-radius: 10px; padding: 24px 28px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .header-left .eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #9fb2c4; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .header-left .customer { font-size: 22px; font-weight: 800; color: #fff; }
+  .header-left .site { font-size: 13px; color: #9fb2c4; margin-top: 4px; }
+  .header-right { text-align: right; }
+  .score-big { font-size: 64px; font-weight: 800; line-height: 1; color: ${scoreHex}; }
+  .score-label { font-size: 12px; color: #9fb2c4; margin-bottom: 4px; }
+  .qual-text { font-size: 16px; color: #dce6ef; margin-top: 4px; }
+  .al-badge { display: inline-block; background: ${alColor}; color: #fff; font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 999px; margin-top: 8px; }
+  .section-title { font-size: 13px; font-weight: 800; text-transform: uppercase; color: #667084; letter-spacing: 0.08em; margin: 20px 0 10px; border-bottom: 2px solid #e5e9ef; padding-bottom: 6px; }
+  .bars-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .bar-card { background: #f8f9fa; border-radius: 8px; padding: 12px 14px; }
+  .bar-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .bar-name { font-size: 13px; font-weight: 700; }
+  .bar-pct { font-size: 15px; font-weight: 800; }
+  .bar-track { background: #e5e9ef; border-radius: 999px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 999px; }
+  .fault-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0f2f5; }
+  .sev-badge { flex-shrink: 0; font-size: 11px; font-weight: 800; color: #fff; padding: 3px 8px; border-radius: 999px; min-width: 28px; text-align: center; }
+  .fault-text { font-size: 13px; color: #334155; }
+  .no-faults { padding: 16px; text-align: center; color: #1f9d55; font-weight: 700; background: #f0fdf4; border-radius: 8px; }
+  .footer { margin-top: 24px; padding-top: 14px; border-top: 1px solid #e5e9ef; font-size: 11px; color: #8792a2; display: flex; justify-content: space-between; }
+  @media print { body { padding: 12px; } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow">SMARTGuard · Villamos Biztonsági Felülvizsgálat</div>
+      <div class="customer">${escapeHtml(state.customerName)||"Ügyfél"}</div>
+      <div class="site">${escapeHtml(state.siteAddress)||""} · ${state.inspectionDate||""}</div>
+    </div>
+    <div class="header-right">
+      <div class="score-label">SMARTScore</div>
+      <div class="score-big">${score}%</div>
+      <div class="qual-text">${qual}</div>
+      <div class="al-badge">⚡ ${al}</div>
+    </div>
+  </div>
+
+  <div class="section-title">Kategória értékelés</div>
+  <div class="bars-grid">
+    ${categories().map(c => {
+      const v = categoryScore(c.id);
+      const hex = categoryColorHex(v);
+      return `<div class="bar-card">
+        <div class="bar-header">
+          <span class="bar-name">${c.name}</span>
+          <span class="bar-pct" style="color:${hex}">${v}%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${v}%;background:${hex}"></div></div>
+      </div>`;
+    }).join("")}
+  </div>
+
+  <div class="section-title">Azonosított hibák</div>
+  ${errors.length ? errors.map(f => `
+    <div class="fault-row">
+      <span class="sev-badge" style="background:${severityColorHex(f.severity)}">${f.severity}</span>
+      <span class="fault-text">${escapeHtml(f.text)}</span>
+    </div>`).join("") : `<div class="no-faults">✓ Nincs rögzített hiba</div>`}
+
+  <div class="footer">
+    <span>Smart Electric Hungary Kft. · SMARTGuard VBF rendszer</span>
+    <span>Generálva: ${new Date().toLocaleDateString("hu-HU")}</span>
+  </div>
+</body>
+</html>`;
+}
+
+async function downloadPdf() {
+  const html = generatePdfHtml();
+  // Nyomtatás PDF-ként egy új ablakban
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); }, 500);
+}
+
+function downloadDataPackage() {  const blob = new Blob([JSON.stringify({
     meta:{customerName:state.customerName,siteAddress:state.siteAddress,inspectionDate:state.inspectionDate,
       protocolNumbers:state.protocolNumbers,smartScore:totalScore(),qualification:qualification(totalScore()),actionLevel:actionLevel()},
     rooms:state.rooms,avkTypes:state.avkTypes,scoring:state.scoring,
@@ -1055,6 +1228,33 @@ async function downloadWordDocs(type) {
 }
 
 // ─── WIRE EVENTS ─────────────────────────────────────────────────────────────
+var SZOLGALTATASOK = [
+  { id:"eloszto_karb",  label:"Elosztó karbantartás"             },
+  { id:"koteshuzas",    label:"Kötéshúzás"                       },
+  { id:"vedelem_csere", label:"Hibás védelmi eszközök cseréje"   },
+  { id:"eloszto_atep",  label:"Elosztó átépítés"                 },
+  { id:"hokamera",      label:"Hőkamerás vizsgálat"              },
+  { id:"vilagitas_felm",label:"Világítás felmérés"               },
+  { id:"led_korszer",   label:"Világítás korszerűsítés (LED)"    },
+  { id:"villamved",     label:"Villámvédelem felülvizsgálat"     },
+  { id:"tulfeszultseg", label:"Túlfeszültség védelem"            },
+  { id:"erintesved",    label:"Érintésvédelmi javítás"          },
+  { id:"smartguard",    label:"SMART Guard monitoring"           },
+  { id:"eves_karb",     label:"Éves karbantartási szerződés"     },
+  { id:"prediktiv",     label:"Prediktív karbantartás"           },
+  { id:"fogyaszt",      label:"Fogyasztásmérés"                  },
+  { id:"aleloszto",     label:"Alelosztó kialakítás"             },
+];
+
+var SMART_MODULOK = [
+  { id:"vbf_plus",     name:"Smart VBF Plus",       icon:"🔁", desc:"Éves VBF + karbantartási szolgáltatás.",          mikor:"Sok NMF kötés, rossz elosztó, sok hiba, nincs éves karbantartás." },
+  { id:"repair",       name:"Smart Repair",          icon:"🔧", desc:"Feltárt hibák javítása, üzembiztonság helyreállítása.", mikor:"Konkrét hibák, hibás védelmek, melegedés, égésnyom." },
+  { id:"light_care",   name:"Smart Light Care",      icon:"💡", desc:"Világítási rendszer felmérése és optimalizálása.", mikor:"Rossz világítás, elégtelen LUX, régi fényforrások." },
+  { id:"relight",      name:"Smart ReLight",         icon:"⚡", desc:"LED korszerűsítés és energiahatékonysági fejlesztés.", mikor:"Korszerűtlen világítás, magas energiafogyasztás." },
+  { id:"energy",       name:"Smart Energy",          icon:"📊", desc:"Fogyasztás monitoring és energetikai elemzés.",   mikor:"Magas fogyasztás, ingadozó terhelés, csúcsterhelések." },
+  { id:"voltage_guard",name:"Smart Voltage Guard",   icon:"🛡", desc:"Feszültség monitoring és anomália figyelés.",     mikor:"Feszültség ingadozás, érzékeny berendezések." },
+];
+
 function wireEvents() {
   document.querySelectorAll(".nav-item").forEach(b=>{
     const go=e=>{e.preventDefault();showView(b.dataset.view);};
@@ -1064,7 +1264,7 @@ function wireEvents() {
     const go=e=>{e.preventDefault();showView(b.dataset.jump);};
     b.addEventListener("click",go); b.addEventListener("touchend",go);
   });
-  ["customerName","siteAddress","inspectionDate"].forEach(id=>{
+  ["customerName","siteAddress","munkaszam","inspectionDate"].forEach(id=>{
     document.querySelector(`#${id}`).addEventListener("input",e=>{
       state[id]=e.target.value;
       state.protocolNumbers={hurok:makeProtocolNumber(state,"HUROK"),avk:makeProtocolNumber(state,"AVK"),eloszto:makeProtocolNumber(state,"ELOSZTO")};
@@ -1076,7 +1276,7 @@ function wireEvents() {
     const name=getVal("#newRoomName");
     const room={id:slugify(name)+`_${Date.now()}`,name,level:getVal("#newRoomLevel"),defaultDistributor:"",defaultBreakerDugalj:"",defaultBreakerVilagitas:""};
     state.rooms.push(room);
-    for(let i=0;i<10;i++) state.hurokRows.push(emptyHurokRow(nextNo(state.hurokRows),room.id,room,"hurok"));
+    for(let i=0;i<5;i++) state.hurokRows.push(emptyHurokRow(nextNo(state.hurokRows),room.id,room,"hurok"));
     e.target.reset(); saveState(); render();
   });
   document.querySelector("#avkTypeForm").addEventListener("submit",e=>{
@@ -1089,7 +1289,7 @@ function wireEvents() {
     const name=prompt("Új helyiség neve:"); if(!name) return;
     const room={id:slugify(name)+`_${Date.now()}`,name,level:"",defaultDistributor:"",defaultBreakerDugalj:"",defaultBreakerVilagitas:""};
     state.rooms.push(room);
-    for(let i=0;i<10;i++) state.hurokRows.push(emptyHurokRow(nextNo(state.hurokRows),room.id,room,"hurok"));
+    for(let i=0;i<5;i++) state.hurokRows.push(emptyHurokRow(nextNo(state.hurokRows),room.id,room,"hurok"));
     saveState(); render();
   });
   document.querySelector("#addAvkRow").addEventListener("click",()=>{
@@ -1101,7 +1301,7 @@ function wireEvents() {
       ce:"MF",warningLabel:"MF",thermal:"MF",ip:"MF",evMode:"TN-C-S",documentation:"MF",status:"MF",
       hurokL1:"",hurokL2:"",hurokL3:"",feszL1:"",faults:[]};
     state.elosztoRows.push(newDist);
-    for(let i=0;i<20;i++) state.avkRows.push(emptyAvkRow(nextNo(state.avkRows),newDist.id,newDist.name,state.avkTypes[0]||"Schrack"));
+    for(let i=0;i<5;i++) state.avkRows.push(emptyAvkRow(nextNo(state.avkRows),newDist.id,newDist.name,state.avkTypes[0]||"Schrack"));
     saveState(); render();
   });
   document.querySelector(".workspace").addEventListener("input",  handleWorkspaceInput);
@@ -1119,6 +1319,7 @@ function wireEvents() {
   document.querySelector("#downloadHurokWord").addEventListener("click",()=>downloadWordDocs("hurok"));
   document.querySelector("#downloadAvkWord").addEventListener("click",()=>downloadWordDocs("avk"));
   document.querySelector("#downloadReportWord").addEventListener("click",()=>downloadWordDocs("report"));
+  document.querySelector("#downloadPdf").addEventListener("click", downloadPdf);
   document.querySelector("#resetScoring").addEventListener("click",()=>{state.scoring=clone(defaultScoring);saveState();render();});
   document.querySelector("#clearStorage").addEventListener("click",()=>{
     if(!confirm("Biztosan törlöd az összes mentett adatot?")) return;
@@ -1144,7 +1345,96 @@ function wireEvents() {
     saveState();
   });
   document.querySelector("#downloadAlapdokWord").addEventListener("click", () => downloadWordDocs("alapdok"));
+  const btn2 = document.querySelector("#downloadAlapdokWord2");
+  if (btn2) btn2.addEventListener("click", () => downloadWordDocs("alapdok"));
   if(channel) channel.addEventListener("message",e=>{state=migrateState(e.data);saveState("remote");render();});
+
+  // ─── Ajánlat event kezelők ───────────────────────────────────
+  var ajanlatSection = document.querySelector("#ajanlat");
+  if (ajanlatSection) {
+    ajanlatSection.addEventListener("input", function(e) {
+      if (!state.ajanlat) state.ajanlat = getAjanlatState();
+      var changed = false;
+      if (e.target.dataset.ajanlatHiba) {
+        state.ajanlat.hibaArak[e.target.dataset.ajanlatHiba] = e.target.value;
+        changed = true;
+      }
+      if (e.target.dataset.ajanlatSzolgAr !== undefined) {
+        if (!state.ajanlat.szolgArak) state.ajanlat.szolgArak = {};
+        state.ajanlat.szolgArak[e.target.dataset.ajanlatSzolgAr] = e.target.value;
+        changed = true;
+      }
+      if (e.target.dataset.sgAr !== undefined) {
+        if (!state.ajanlat.sgArak) state.ajanlat.sgArak = {};
+        state.ajanlat.sgArak[e.target.dataset.sgAr] = e.target.value;
+        changed = true;
+      }
+      if (changed) {
+        saveState();
+        renderAjanlatSummaryOnly(); // Csak az összesítőt frissítjük, NEM az egész DOM-t
+      }
+    });
+    ajanlatSection.addEventListener("blur", function(e) {
+      // Blur-kor NEM renderelünk újra - az ár mezők tartalma megmarad
+      // Az összesítő frissítése az input event-kor történik
+    }, true);
+    ajanlatSection.addEventListener("change", function(e) {
+      if (!state.ajanlat) state.ajanlat = getAjanlatState();
+      if (e.target.dataset.ajanlatSzolg) {
+        if (!state.ajanlat.szolgChecked) state.ajanlat.szolgChecked = {};
+        state.ajanlat.szolgChecked[e.target.dataset.ajanlatSzolg] = e.target.checked;
+        saveState(); renderAjanlat();
+      }
+      if (e.target.dataset.sgModul) {
+        if (!state.ajanlat.sgChecked) state.ajanlat.sgChecked = {};
+        state.ajanlat.sgChecked[e.target.dataset.sgModul] = e.target.checked;
+        saveState(); renderAjanlat();
+      }
+      if (e.target.id === "ajanlatAfa") {
+        state.ajanlat.afa = Number(e.target.value);
+        saveState(); renderAjanlat();
+      }
+    });
+    ajanlatSection.addEventListener("click", function(e) {
+      // Ha input vagy annak gyereke -> NEM toggleolunk, csak engedjük a fókuszt
+      if (e.target.closest("input") || e.target.tagName === "INPUT") return;
+      var t = e.target.closest("[data-toggle-szolg]");
+      var t2 = e.target.closest("[data-toggle-sg]");
+      if (t) {
+        var id = t.dataset.toggleSzolg;
+        if (!state.ajanlat) state.ajanlat = getAjanlatState();
+        if (!state.ajanlat.szolgChecked) state.ajanlat.szolgChecked = {};
+        var wasChecked = state.ajanlat.szolgChecked.hasOwnProperty(id) ? state.ajanlat.szolgChecked[id] : !!(autoSzolgJavas()[id]);
+        state.ajanlat.szolgChecked[id] = !wasChecked;
+        saveState(); renderAjanlat();
+      }
+      if (t2) {
+        var id2 = t2.dataset.toggleSg;
+        if (!state.ajanlat) state.ajanlat = getAjanlatState();
+        if (!state.ajanlat.sgChecked) state.ajanlat.sgChecked = {};
+        var wasChecked2 = state.ajanlat.sgChecked.hasOwnProperty(id2) ? state.ajanlat.sgChecked[id2] : !!(autoSmartJavas()[id2]);
+        state.ajanlat.sgChecked[id2] = !wasChecked2;
+        saveState(); renderAjanlat();
+      }
+    });
+    var dlBtn = document.querySelector("#downloadAjanlat");
+    if (dlBtn) dlBtn.addEventListener("click", downloadAjanlatPdf);
+  }
+
+  // ─── Kész gomb ────────────────────────────────────────────────
+  var keszBtnEl = document.querySelector("#keszBtn");
+  var visszavonBtnEl = document.querySelector("#visszavonBtn");
+  if (keszBtnEl) keszBtnEl.addEventListener("click", function() {
+    if (!confirm("Biztosan lezárod a jegyzőkönyvet?")) return;
+    state.lezarva = true;
+    state.lezarvaDatum = new Date().toLocaleDateString("hu-HU");
+    saveState(); renderKeszGomb();
+  });
+  if (visszavonBtnEl) visszavonBtnEl.addEventListener("click", function() {
+    state.lezarva = false;
+    state.lezarvaDatum = "";
+    saveState(); renderKeszGomb();
+  });
 }
 
 wireEvents();
@@ -1153,3 +1443,376 @@ saveState();
 
 if("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(r=>r.unregister()));
 if("caches" in window) caches.keys().then(keys=>keys.forEach(k=>caches.delete(k)));
+
+// ─── SMART GUARD & AJÁNLAT (v25) ─────────────────────────────────────────────
+
+
+
+
+
+function getAjanlatState() {
+  var base = state.ajanlat || {};
+  return {
+    hibaArak:     base.hibaArak     || {},
+    szolgChecked: base.szolgChecked || {},
+    szolgArak:    base.szolgArak    || {},
+    sgChecked:    base.sgChecked    || {},
+    sgArak:       base.sgArak       || {},
+    afa:          base.afa !== undefined ? base.afa : 0.27,
+  };
+}
+
+function autoSzolgJavas() {
+  try {
+    var faults = allFaultRows().filter(function(r){return !r.isNA;});
+    return {
+      eloszto_karb:  categoryScore("eloszto") < 80 || totalScore() < 80,
+      koteshuzas:    state.elosztoRows.some(function(d){return d.kotesek==="NMF";}),
+      vedelem_csere: faults.some(function(r){return r.severity==="A"||r.severity==="B";}),
+      hokamera:      state.elosztoRows.some(function(d){return d.thermal==="NMF";}),
+      erintesved:    faults.some(function(r){return r.category==="hurok"&&r.severity==="A";}),
+    };
+  } catch(e) { return {}; }
+}
+
+function autoSmartJavas() {
+  try {
+    var score = totalScore();
+    var faults = allFaultRows().filter(function(r){return !r.isNA;});
+    var auto = {};
+    if (score <= 89) auto.vbf_plus = true;
+    if (score <= 79) auto.repair = true;
+    if (score <= 59) { auto.energy = true; auto.voltage_guard = true; }
+    if (state.elosztoRows.some(function(d){return d.kotesek==="NMF";})) { auto.repair = true; auto.vbf_plus = true; }
+    if (faults.some(function(r){return r.severity==="A"||r.severity==="B";})) auto.repair = true;
+    return auto;
+  } catch(e) { return {}; }
+}
+
+function getSmartModulTotal() {
+  var aj = getAjanlatState();
+  var auto = autoSmartJavas();
+  return SMART_MODULOK.reduce(function(sum, m) {
+    var isChecked = aj.sgChecked.hasOwnProperty(m.id) ? aj.sgChecked[m.id] : !!auto[m.id];
+    return sum + (isChecked ? (Number(aj.sgArak[m.id])||0) : 0);
+  }, 0);
+}
+
+function svCheckbox(checked, small) {
+  var sz = small ? 14 : 18;
+  var style = 'width:'+sz+'px;height:'+sz+'px;border-radius:4px;border:2px solid '+(checked?'#1F497D':'#cbd5e1')+';background:'+(checked?'#1F497D':'#fff')+';display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;';
+  var check = checked ? '<svg width="10" height="8" viewBox="0 0 10 8"><polyline points="1,4 3.5,7 9,1" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
+  return '<div style="'+style+'">'+check+'</div>';
+}
+
+function renderSmartModulok() {
+  var el = document.querySelector("#smartGuardModulok");
+  if (!el) return;
+  try {
+    var aj = getAjanlatState();
+    var auto = autoSmartJavas();
+    var score = 100; try { score = totalScore(); } catch(e) {}
+    var scoreHex = categoryColorHex(score);
+    var szint = score>=90?"✅ Kiváló – nincs szükséges beavatkozás.":score>=80?"⚡ Ajánlott: Smart VBF Plus":score>=60?"⚠️ Ajánlott: Smart Repair + VBF Plus":"🔴 Azonnali beavatkozás szükséges!";
+
+    var html = '<div class="sg-score-banner"><span class="sg-score-val" style="color:'+scoreHex+'">'+score+'%</span><span class="sg-score-text">'+szint+'</span></div>';
+    html += '<p style="font-size:12px;color:#667084;margin:0 0 12px">Pipáld be amit ajánlani szeretnél és add meg az árat. Az ⚡ jelöltek a vizsgálat alapján automatikusan ajánlottak.</p>';
+
+    SMART_MODULOK.forEach(function(m) {
+      var isAuto = !!auto[m.id];
+      var isChecked = aj.sgChecked.hasOwnProperty(m.id) ? aj.sgChecked[m.id] : isAuto;
+      var ar = aj.sgArak[m.id] || "";
+      var badge = isAuto ? ' <span style="background:#1F497D;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px;">⚡ ajánlott</span>' : '';
+      var priceHtml = isChecked
+        ? '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #e5e9ef;" onclick="event.stopPropagation()"><label style="font-size:12px;color:#667084;white-space:nowrap">Ár:</label><input type="number" min="0" step="1000" placeholder="0" value="'+ar+'" data-sg-ar="'+m.id+'" style="flex:1;padding:6px 8px;border:1px solid #1F497D;border-radius:6px;font-size:13px;text-align:right;"><span style="font-size:12px;color:#667084">Ft</span></div>'
+        : '<div style="margin-top:6px;font-size:11px;color:#8792a2;font-style:italic">Kérhető – nincs automatikus javaslat</div>';
+      var cardStyle = 'border:1.5px solid '+(isChecked?'#1F497D':'#e5e9ef')+';border-radius:10px;padding:12px 14px;background:'+(isChecked?'#f0f5fb':'#f8f9fa')+';';
+      html += '<div style="'+cardStyle+'">';
+      // Toggle CSAK a header során - ár input kívül van
+      html += '<div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;" data-toggle-sg="'+m.id+'">';
+      html += svCheckbox(isChecked, false);
+      html += '<span style="font-size:18px;">'+m.icon+'</span>';
+      html += '<div style="flex:1;"><div style="font-size:14px;font-weight:800;color:#102536;">'+m.name+badge+'</div><div style="font-size:12px;color:#667084;margin-top:2px;">'+m.desc+'</div></div>';
+      html += '</div>';
+      html += priceHtml;
+      html += '</div>';
+    });
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<p style="color:red">Hiba: '+e.message+'</p>';
+  }
+}
+
+
+function renderAjanlatSummaryOnly() {
+  // Csak az összesítő részt frissíti - az ár input mezők érintetlenek maradnak
+  var sumEl = document.querySelector("#ajanlatSummary");
+  if (!sumEl) return;
+  var aj = getAjanlatState();
+  var auto = autoSzolgJavas();
+
+  var hibaTotal = 0;
+  Object.values(aj.hibaArak).forEach(function(v) { hibaTotal += Number(v)||0; });
+
+  var egyebSzolgTotal = (SZOLGALTATASOK||[]).reduce(function(s, sv) {
+    var ch = aj.szolgChecked.hasOwnProperty(sv.id) ? aj.szolgChecked[sv.id] : false;
+    return s + (ch ? (Number(aj.szolgArak[sv.id])||0) : 0);
+  }, 0);
+
+  var sgTotal = getSmartModulTotal();
+  var nettoTotal = hibaTotal + egyebSzolgTotal + sgTotal;
+  var afaKulcs = Number(aj.afa||0.27);
+  var afaOsszeg = Math.round(nettoTotal * afaKulcs);
+  var bruttoTotal = nettoTotal + afaOsszeg;
+
+  var sumHtml = '<div style="border:1px solid #e5e9ef;border-radius:8px;overflow:hidden;">';
+  if (hibaTotal>0) sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:13px;"><span>Hibajavítás összesen</span><strong>'+hibaTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+  if (egyebSzolgTotal>0) sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:13px;"><span>Egyéb szolgáltatások</span><strong>'+egyebSzolgTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+  if (sgTotal>0) sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:13px;"><span>SMART Guard modulok</span><strong>'+sgTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+  sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:14px;font-weight:700;background:#f0f5fb;"><span>Nettó összesen</span><strong>'+nettoTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+  sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:13px;color:#667084;"><span>ÁFA ('+Math.round(afaKulcs*100)+'%)</span><span>'+afaOsszeg.toLocaleString("hu-HU")+' Ft</span></div>';
+  sumHtml += '<div style="display:flex;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,#102536,#1F497D);color:#fff;font-size:16px;font-weight:800;"><span>Bruttó végösszeg</span><strong>'+bruttoTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+  sumHtml += '</div>';
+  sumEl.innerHTML = sumHtml;
+}
+
+function renderAjanlat() {
+  var aj = getAjanlatState();
+  var auto = autoSzolgJavas();
+  var faults = allFaultRows().filter(function(r){return !r.isNA;}).sort(function(a,b){return "ABCD".indexOf(a.severity)-"ABCD".indexOf(b.severity);});
+
+  // 1. Hibajavítás
+  var hibaEl = document.querySelector("#ajanlatHibaList");
+  if (!hibaEl) return;
+  var hibaTotal = 0;
+  if (!faults.length) {
+    hibaEl.innerHTML = '<div style="padding:16px;text-align:center;color:#1f9d55;font-weight:700;background:#f0fdf4;border-radius:8px;">✓ Nincs rögzített hiba – nincs szükség hibajavításra.</div>';
+  } else {
+    var hibaHtml = '';
+    faults.forEach(function(f) {
+      var key = btoa(encodeURIComponent(f.text)).slice(0,20);
+      var ar = aj.hibaArak[key] || "";
+      hibaTotal += Number(ar)||0;
+      var sevColor = {A:"#c92a2a",B:"#e67700",C:"#daa520",D:"#1478b8"}[f.severity]||"#667084";
+      hibaHtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f2f5;">';
+      hibaHtml += '<span style="background:'+sevColor+';color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;flex-shrink:0;">'+f.severity+'</span>';
+      hibaHtml += '<span style="flex:1;font-size:13px;">'+escapeHtml(f.text)+'</span>';
+      hibaHtml += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;"><input type="number" min="0" step="1000" placeholder="0" value="'+ar+'" data-ajanlat-hiba="'+key+'" style="width:90px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:right;"><span style="font-size:12px;color:#667084">Ft</span></div>';
+      hibaHtml += '</div>';
+    });
+    if (hibaTotal > 0) hibaHtml += '<div style="display:flex;justify-content:flex-end;gap:8px;padding:10px 0;font-weight:700;">Hibajavítás összesen: '+hibaTotal.toLocaleString("hu-HU")+' Ft</div>';
+    hibaEl.innerHTML = hibaHtml;
+  }
+
+  // 2. Ajánlható szolgáltatások
+  var szolgEl = document.querySelector("#ajanlatSzolgList");
+  if (szolgEl) {
+    var szolgHtml = '';
+    SZOLGALTATASOK.forEach(function(s) {
+      var isAuto = !!auto[s.id];
+      var isChecked = aj.szolgChecked.hasOwnProperty(s.id) ? aj.szolgChecked[s.id] : isAuto;
+      var ar = aj.szolgArak[s.id] || "";
+      var badge = isAuto ? '<span style="background:#dce8f5;color:#1F497D;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;margin-left:4px;">⚡ ajánlott</span>' : '';
+      var outerStyle = 'border:1.5px solid '+(isChecked?'#1F497D':'#e5e9ef')+';border-radius:8px;padding:10px 12px;background:'+(isChecked?'#f0f5fb':'#f8f9fa')+';';
+      // A kártya külső div-je NEM toggle - csak vizuális keret
+      szolgHtml += '<div style="'+outerStyle+'">';
+      // A toggle CSAK a checkbox+label sorára vonatkozik
+      szolgHtml += '<div style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;" data-toggle-szolg="'+s.id+'">';
+      szolgHtml += svCheckbox(isChecked, true);
+      szolgHtml += '<span style="font-size:13px;font-weight:600;color:#102536;flex:1;">'+s.label+badge+'</span>';
+      szolgHtml += '</div>';
+      // Az ár input KÍVÜL van a toggle div-ből - semmi nem zavarja
+      if (isChecked) {
+        szolgHtml += '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:6px;border-top:1px solid #e5e9ef;">';
+        szolgHtml += '<label style="font-size:11px;color:#667084;white-space:nowrap">Ár:</label>';
+        szolgHtml += '<input type="number" min="0" step="1000" placeholder="0" value="'+ar+'" data-ajanlat-szolgar="'+s.id+'" style="flex:1;padding:5px 8px;border:1px solid #1F497D;border-radius:6px;font-size:13px;text-align:right;">';
+        szolgHtml += '<span style="font-size:11px;color:#667084">Ft</span>';
+        szolgHtml += '</div>';
+      }
+      szolgHtml += '</div>';
+    });
+    szolgEl.innerHTML = szolgHtml;
+  }
+
+  // 3. Smart Guard
+  renderSmartModulok();
+
+  // 4. Összesítő
+  var egyebSzolgTotal = SZOLGALTATASOK.reduce(function(sum,s){
+    var isChecked = aj.szolgChecked.hasOwnProperty(s.id) ? aj.szolgChecked[s.id] : false;
+    return sum + (isChecked ? (Number(aj.szolgArak[s.id])||0) : 0);
+  }, 0);
+  var sgTotal = getSmartModulTotal();
+  var nettoTotal = hibaTotal + egyebSzolgTotal + sgTotal;
+  var afaKulcs = Number(aj.afa||0.27);
+  var afaOsszeg = Math.round(nettoTotal * afaKulcs);
+  var bruttoTotal = nettoTotal + afaOsszeg;
+
+  var sumEl = document.querySelector("#ajanlatSummary");
+  if (sumEl) {
+    var sumHtml = '<div style="border:1px solid #e5e9ef;border-radius:8px;overflow:hidden;">';
+    if (hibaTotal>0) sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:13px;"><span>Hibajavítás összesen</span><strong>'+hibaTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+    if (egyebSzolgTotal>0) sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:13px;"><span>Egyéb szolgáltatások</span><strong>'+egyebSzolgTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+    if (sgTotal>0) sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:13px;"><span>SMART Guard modulok</span><strong>'+sgTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+    sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:14px;font-weight:700;background:#f0f5fb;"><span>Nettó összesen</span><strong>'+nettoTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+    sumHtml += '<div style="display:flex;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:13px;color:#667084;"><span>ÁFA ('+Math.round(afaKulcs*100)+'%)</span><span>'+afaOsszeg.toLocaleString("hu-HU")+' Ft</span></div>';
+    sumHtml += '<div style="display:flex;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,#102536,#1F497D);color:#fff;font-size:16px;font-weight:800;"><span>Bruttó végösszeg</span><strong>'+bruttoTotal.toLocaleString("hu-HU")+' Ft</strong></div>';
+    sumHtml += '</div>';
+    sumEl.innerHTML = sumHtml;
+    document.querySelector("#ajanlatAfa").value = String(aj.afa||0.27);
+  }
+}
+
+function wireAjanlat() {
+  var ajanlatSection = document.querySelector("#ajanlat");
+  ajanlatSection.addEventListener("input", function(e) {
+    if (!state.ajanlat) state.ajanlat = getAjanlatState();
+    if (e.target.dataset.ajanlatHiba) {
+      state.ajanlat.hibaArak[e.target.dataset.ajanlatHiba] = e.target.value;
+      saveState();
+    }
+    if (e.target.dataset.ajanlatSzolgAr !== undefined) {
+      if (!state.ajanlat.szolgArak) state.ajanlat.szolgArak = {};
+      state.ajanlat.szolgArak[e.target.dataset.ajanlatSzolgAr] = e.target.value;
+      saveState();
+    }
+    if (e.target.dataset.sgAr !== undefined) {
+      if (!state.ajanlat.sgArak) state.ajanlat.sgArak = {};
+      state.ajanlat.sgArak[e.target.dataset.sgAr] = e.target.value;
+      saveState();
+    }
+  });
+  ajanlatSection.addEventListener("blur", function(e) {
+    if (e.target.dataset.ajanlatHiba || e.target.dataset.ajanlatSzolgAr !== undefined || e.target.dataset.sgAr !== undefined) {
+      renderAjanlat();
+    }
+  }, true);
+  ajanlatSection.addEventListener("change", function(e) {
+    if (!state.ajanlat) state.ajanlat = getAjanlatState();
+    if (e.target.dataset.ajanlatSzolg) {
+      if (!state.ajanlat.szolgChecked) state.ajanlat.szolgChecked = {};
+      state.ajanlat.szolgChecked[e.target.dataset.ajanlatSzolg] = e.target.checked;
+      saveState(); renderAjanlat();
+    }
+    if (e.target.dataset.sgModul) {
+      if (!state.ajanlat.sgChecked) state.ajanlat.sgChecked = {};
+      state.ajanlat.sgChecked[e.target.dataset.sgModul] = e.target.checked;
+      saveState(); renderAjanlat();
+    }
+    if (e.target.id === "ajanlatAfa") {
+      state.ajanlat.afa = Number(e.target.value);
+      saveState(); renderAjanlat();
+    }
+  });
+  // Click delegation a vizuális checkbox div-ekre
+  ajanlatSection.addEventListener("click", function(e) {
+    var t = e.target.closest("[data-toggle-szolg]");
+    var t2 = e.target.closest("[data-toggle-sg]");
+    if (t) {
+      var id = t.dataset.toggleSzolg;
+      if (!state.ajanlat) state.ajanlat = getAjanlatState();
+      if (!state.ajanlat.szolgChecked) state.ajanlat.szolgChecked = {};
+      var auto = autoSzolgJavas();
+      var wasChecked = state.ajanlat.szolgChecked.hasOwnProperty(id) ? state.ajanlat.szolgChecked[id] : !!auto[id];
+      state.ajanlat.szolgChecked[id] = !wasChecked;
+      saveState(); renderAjanlat();
+    }
+    if (t2) {
+      var id2 = t2.dataset.toggleSg;
+      if (!state.ajanlat) state.ajanlat = getAjanlatState();
+      if (!state.ajanlat.sgChecked) state.ajanlat.sgChecked = {};
+      var autoSG = autoSmartJavas();
+      var wasChecked2 = state.ajanlat.sgChecked.hasOwnProperty(id2) ? state.ajanlat.sgChecked[id2] : !!autoSG[id2];
+      state.ajanlat.sgChecked[id2] = !wasChecked2;
+      saveState(); renderAjanlat();
+    }
+  });
+  document.querySelector("#downloadAjanlat").addEventListener("click", downloadAjanlatPdf);
+}
+
+function renderKeszGomb() {
+  var btn = document.querySelector("#keszBtn");
+  var banner = document.querySelector("#keszBanner");
+  if (!btn || !banner) return;
+  if (state.lezarva) {
+    btn.style.display = "none";
+    banner.style.display = "flex";
+    document.querySelector("#keszDatum").textContent = state.lezarvaDatum ? " · Lezárva: "+state.lezarvaDatum : "";
+  } else {
+    btn.style.display = "block";
+    banner.style.display = "none";
+  }
+}
+
+function downloadAjanlatPdf() {
+  var aj = getAjanlatState();
+  var auto = autoSzolgJavas();
+  var autoSG = autoSmartJavas();
+  var faults = allFaultRows().filter(function(r){return !r.isNA;}).sort(function(a,b){return "ABCD".indexOf(a.severity)-"ABCD".indexOf(b.severity);});
+  var score = 100; try { score = totalScore(); } catch(e) {}
+  var qual = qualification(score);
+  var al = actionLevel();
+  var scoreHex = categoryColorHex(score);
+  var alColor = {Azonnali:"#c92a2a",Sürgős:"#e67700",Ütemezett:"#f2b705",Tervezett:"#1f9d55"}[al]||"#667084";
+  var hibaTotal = 0;
+  faults.forEach(function(f){var k=btoa(encodeURIComponent(f.text)).slice(0,20);hibaTotal+=Number(aj.hibaArak[k]||0);});
+  var egyebTotal = SZOLGALTATASOK.reduce(function(s,sv){var ch=aj.szolgChecked.hasOwnProperty(sv.id)?aj.szolgChecked[sv.id]:false;return s+(ch?(Number(aj.szolgArak[sv.id])||0):0);},0);
+  var sgTotal = getSmartModulTotal();
+  var nettoTotal = hibaTotal + egyebTotal + sgTotal;
+  var afaKulcs = Number(aj.afa||0.27);
+  var afaOsszeg = Math.round(nettoTotal*afaKulcs);
+  var bruttoTotal = nettoTotal + afaOsszeg;
+
+  var hibaRows = faults.filter(function(f){var k=btoa(encodeURIComponent(f.text)).slice(0,20);return aj.hibaArak[k];}).map(function(f){
+    var k=btoa(encodeURIComponent(f.text)).slice(0,20);var ar=Number(aj.hibaArak[k]||0);
+    var sevColor={A:"#c92a2a",B:"#e67700",C:"#daa520",D:"#1478b8"}[f.severity]||"#667084";
+    return '<tr><td><span style="background:'+sevColor+';color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;">'+f.severity+'</span></td><td>'+escapeHtml(f.text)+'</td><td style="text-align:right;font-weight:700;">'+ar.toLocaleString("hu-HU")+' Ft</td></tr>';
+  }).join("");
+
+  var sgRows = SMART_MODULOK.map(function(m){
+    var isAuto=!!autoSG[m.id];var ch=aj.sgChecked.hasOwnProperty(m.id)?aj.sgChecked[m.id]:isAuto;var ar=Number(aj.sgArak[m.id]||0);
+    var badge=isAuto?'<span style="background:#1F497D;color:#fff;font-size:9px;padding:1px 5px;border-radius:999px;">⚡</span>':'';
+    return '<tr style="background:'+(ch?'#f0f5fb':'#fafafa')+'"><td>'+m.icon+' '+m.name+' '+badge+'</td><td style="font-size:11px;color:#667084;">'+m.desc+'</td><td style="text-align:right;font-weight:700;">'+(ch&&ar>0?ar.toLocaleString("hu-HU")+' Ft':'—')+'</td></tr>';
+  }).join("");
+
+  var html = '<!DOCTYPE html><html lang="hu"><head><meta charset="UTF-8"><title>Árajánlat</title><style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:13px;color:#1a2332;background:#f4f6f9}'
+    +'.page{max-width:860px;margin:0 auto;padding:0 0 40px}'
+    +'.hdr{background:linear-gradient(135deg,#0d1f2d,#1F497D);color:#fff;padding:24px 32px;display:flex;justify-content:space-between;align-items:center;gap:16px}'
+    +'.hdr h1{font-size:24px;font-weight:800;}.hdr .sub{font-size:12px;color:#9fb2c4;margin-top:4px}'
+    +'.hdr .meta{margin-top:10px;font-size:12px;color:#b8c9d9}'
+    +'.score-big{font-size:52px;font-weight:800;text-align:right;}'
+    +'.body{background:#fff;padding:24px 32px}'
+    +'h2{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#667084;border-bottom:2px solid #e5e9ef;padding-bottom:5px;margin:20px 0 12px}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:4px}'
+    +'thead th{background:#102536;color:#fff;padding:7px 12px;font-size:11px;text-align:left}'
+    +'tbody td{padding:8px 12px;font-size:12px;border-bottom:1px solid #f0f2f5}'
+    +'.sum-card{border:1px solid #e5e9ef;border-radius:8px;overflow:hidden}'
+    +'.sum-row{display:flex;justify-content:space-between;padding:9px 16px;border-bottom:1px solid #f0f2f5;font-size:13px}'
+    +'.sum-netto{background:#f0f5fb;font-weight:700}'
+    +'.sum-brutto{background:linear-gradient(135deg,#102536,#1F497D);color:#fff;font-weight:800;font-size:16px;padding:14px 16px}'
+    +'.footer{background:#102536;color:#9fb2c4;padding:12px 32px;font-size:11px;display:flex;justify-content:space-between}'
+    +'@media print{body{background:#fff}.page{max-width:100%}}'
+    +'</style></head><body><div class="page">'
+    +'<div class="hdr"><div><div style="font-size:11px;font-weight:800;letter-spacing:.1em;color:#9fb2c4;margin-bottom:8px">SG · SMART ELECTRIC HUNGARY</div><h1>Árajánlat</h1><div class="sub">Villamos biztonsági felülvizsgálat – helyszíni ajánlat</div><div class="meta">🏢 '+(escapeHtml(state.customerName)||"–")+' &nbsp;·&nbsp; 📍 '+(escapeHtml(state.siteAddress)||"–")+(state.munkaszam?' &nbsp;·&nbsp; 📋 '+escapeHtml(state.munkaszam):'')+' &nbsp;·&nbsp; 📅 '+(state.inspectionDate||"")+'</div></div>'
+    +'<div style="text-align:right"><div style="font-size:10px;color:#9fb2c4;margin-bottom:4px">SMARTScore</div><div class="score-big" style="color:'+scoreHex+'">'+score+'%</div><div style="font-size:13px;color:#dce6ef">'+qual+'</div><div style="display:inline-block;background:'+alColor+';color:#fff;font-size:11px;font-weight:800;padding:4px 12px;border-radius:999px;margin-top:6px">⚡ '+al+'</div></div></div>'
+    +'<div class="body">'
+    +(hibaRows?'<h2>🔧 Hibajavítás tételei</h2><table><thead><tr><th width="60">Kat.</th><th>Hiba</th><th width="120" style="text-align:right">Nettó ár</th></tr></thead><tbody>'+hibaRows+'<tr style="background:#f0f5fb"><td colspan="2" style="font-weight:800">Hibajavítás összesen</td><td style="text-align:right;font-weight:800">'+hibaTotal.toLocaleString("hu-HU")+' Ft</td></tr></tbody></table>':'')
+    +'<h2>🛡 SMART Guard modulok</h2><table><thead><tr><th>Modul</th><th>Leírás</th><th width="120" style="text-align:right">Ár</th></tr></thead><tbody>'+sgRows+'</tbody></table>'
+    +'<h2>💰 Összesítő</h2><div class="sum-card">'
+    +(hibaTotal>0?'<div class="sum-row"><span>Hibajavítás összesen</span><strong>'+hibaTotal.toLocaleString("hu-HU")+' Ft</strong></div>':'')
+    +(egyebTotal>0?'<div class="sum-row"><span>Egyéb szolgáltatások</span><strong>'+egyebTotal.toLocaleString("hu-HU")+' Ft</strong></div>':'')
+    +(sgTotal>0?'<div class="sum-row"><span>SMART Guard modulok</span><strong>'+sgTotal.toLocaleString("hu-HU")+' Ft</strong></div>':'')
+    +'<div class="sum-row sum-netto"><span>Nettó összesen</span><strong>'+nettoTotal.toLocaleString("hu-HU")+' Ft</strong></div>'
+    +'<div class="sum-row" style="color:#667084"><span>ÁFA ('+Math.round(afaKulcs*100)+'%)</span><span>'+afaOsszeg.toLocaleString("hu-HU")+' Ft</span></div>'
+    +'<div class="sum-row sum-brutto"><span>Bruttó végösszeg</span><strong>'+bruttoTotal.toLocaleString("hu-HU")+' Ft</strong></div>'
+    +'</div>'
+    +'<p style="margin-top:12px;font-size:11px;color:#8792a2">Az árajánlat tájékoztató jellegű, érvényes 30 napig. A végleges ár a megrendelő igényei alapján módosulhat.</p>'
+    +'</div>'
+    +'<div class="footer"><span><strong>Smart Electric Hungary Kft.</strong> · SMARTGuard VBF rendszer</span><span>Generálva: '+new Date().toLocaleDateString("hu-HU")+'</span></div>'
+    +'</div></body></html>';
+
+  var w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+}
