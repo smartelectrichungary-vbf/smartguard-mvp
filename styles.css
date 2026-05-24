@@ -781,25 +781,26 @@ h2 {
   .sidebar {
     position: static;
     z-index: 10;
-    padding: 14px;
+    padding: 10px 12px;
+    gap: 8px;
   }
 
   .nav {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: auto auto;
-    gap: 6px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
     overflow: visible;
     padding-bottom: 0;
   }
 
   .nav-item {
     min-width: 0;
-    min-height: 36px;
-    padding: 7px 4px;
+    min-height: 32px;
+    padding: 5px 2px;
     text-align: center;
-    font-size: 11px;
+    font-size: 10px;
     line-height: 1.2;
+    border-radius: 6px;
   }
 
   .site-panel {
@@ -1055,9 +1056,7 @@ h2 {
 
 .room-section-body {
   display: block;
-  overflow-x: auto;
-  overflow-y: visible;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
 
 .room-section.collapsed .room-section-body {
@@ -2041,4 +2040,123 @@ h2 {
 .room-header-row,
 .room-compact-row {
   min-width: 500px;
+}
+
+/* ─── Sidebar kompakt TABLE nézetekben mobilon ──────────────── */
+@media (max-width: 980px) {
+  .sidebar.table-view-active .site-panel {
+    display: none;
+  }
+  .sidebar.table-view-active .protocol-panel {
+    display: none;
+  }
+  .sidebar.table-view-active {
+    gap: 6px;
+    padding: 8px 12px;
+  }
+}
+
+/* ─── Sidebar kompakt TABLE nézetekben mobilon ──────────────── */
+@media (max-width: 980px) {
+  /* TABLE nézetekben (Hurok, AVK, Elosztó stb.) a sidebar input mezők eltűnnek */
+  .sidebar.table-view-active .site-panel {
+    display: none !important;
+  }
+  .sidebar.table-view-active {
+    gap: 6px !important;
+    padding: 10px 14px !important;
+  }
+  /* Normál nézetben (Áttekintés, Riport stb.) minden látszik */
+  .sidebar:not(.table-view-active) .site-panel {
+    display: block;
+  }
+}
+/* ─── TABLET optimalizálás (640–980px) ─────────────────────── */
+@media (min-width: 641px) and (max-width: 980px) {
+  /* Tablet: sidebar oldalsáv maradhat, de kompaktabb */
+  .app-shell {
+    grid-template-columns: 220px minmax(0, 1fr) !important;
+    grid-template-rows: unset;
+    min-height: 100vh;
+  }
+  .sidebar {
+    position: sticky !important;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 16px 14px !important;
+    gap: 14px !important;
+    align-self: unset !important;
+  }
+  .nav {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+  }
+  .nav-item {
+    font-size: 13px !important;
+    padding: 9px 12px !important;
+    text-align: left !important;
+    min-height: 38px !important;
+    border-radius: 8px;
+  }
+  .site-panel {
+    display: block !important;
+  }
+  .sidebar.table-view-active .site-panel {
+    display: none !important;
+  }
+  .workspace {
+    overflow-x: hidden;
+  }
+}
+
+/* ─── Mobil (<640px) – brand kompaktabb ────────────────────── */
+@media (max-width: 640px) {
+  .brand-mark {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 14px !important;
+  }
+  .brand-name {
+    font-size: 15px !important;
+  }
+  .brand-tagline {
+    font-size: 10px !important;
+  }
+  .brand {
+    gap: 8px !important;
+  }
+  .sidebar {
+    padding: 8px 12px !important;
+    gap: 6px !important;
+  }
+}
+
+/* ─── KSZ jel (kettős szigetelés) ──────────────────────────── */
+.ksz-badge {
+  background: #f0f5fb;
+  color: #1F497D;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #1F497D;
+}
+
+/* ─── Navbar egységes magasság minden nézetben ──────────────── */
+@media (max-width: 980px) {
+  /* A sidebar magassága fix: csak a brand + nav */
+  .sidebar {
+    height: auto !important;
+    align-self: start !important;
+  }
+  /* Site-panel MINDIG rejtve mobilon - a workspace topbar mutatja az adatokat */
+  .site-panel {
+    display: none !important;
+  }
+  /* Protocol-panel is rejtve */
+  .protocol-panel {
+    display: none !important;
+  }
 }

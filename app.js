@@ -8,10 +8,17 @@ function clone(v) {
 
 // ─── HATÁRÉRTÉKEK ────────────────────────────────────────────────────────────
 const BREAKER_LIMITS = {
-  "B6":  7.67, "B10": 4.60, "B13": 3.54, "B16": 2.88,
-  "B20": 2.30, "B25": 1.84, "B32": 1.44,
-  "C6":  3.83, "C10": 2.30, "C13": 1.77, "C16": 1.44,
-  "C20": 1.15, "C25": 0.92, "C32": 0.72,
+  // B karakterisztika (5×In)
+  "B2":  23.0, "B4": 11.5, "B6": 7.67, "B10": 4.60, "B13": 3.54, "B16": 2.88,
+  "B20": 2.30, "B25": 1.84, "B32": 1.44, "B40": 1.15, "B50": 0.92, "B63": 0.73,
+  // C karakterisztika (10×In)
+  "C2":  11.5, "C4": 5.75, "C6": 3.83, "C10": 2.30, "C13": 1.77, "C16": 1.44,
+  "C20": 1.15, "C25": 0.92, "C32": 0.72, "C40": 0.58, "C50": 0.46, "C63": 0.36,
+  // D karakterisztika (20×In)
+  "D6":  1.92, "D10": 1.15, "D13": 0.88, "D16": 0.72,
+  "D20": 0.58, "D25": 0.46, "D32": 0.36,
+  // FI/RCD (csak jelzés, nincs hurokimpedancia limit)
+  "FI": null, "RCD": null,
 };
 
 // AVK leoldási tartományok (IΔn alapján)
@@ -60,6 +67,8 @@ function autoAvkStatus(row) {
 
 function autoHurokStatus(breaker, valueOhm, fault, severity) {
   if (fault || severity) return "NMF";
+  // KSZ = Kettős Szigetelés – szemrevételezéssel megfelelt, nem mérünk
+  if (String(valueOhm).trim().toUpperCase() === "KSZ") return "MF";
   if (!valueOhm || !breaker) return "";
   const val = parseFloat(String(valueOhm).replace(",", "."));
   if (isNaN(val)) return "";
@@ -430,13 +439,17 @@ function renderAvkTypes() {
 // ─── HUROK TÁBLA ─────────────────────────────────────────────────────────────
 // Fejléc csak a nyitott szekció BELSEJÉBEN, közvetlenül a sorok felett
 function hurokHeaderRow() {
-  const cols = ["Ssz.","Típus","Mérési pont / megnevezés","Mód/oszt.","Elosztó","Megszakító","PE folyt.","Érték [Ω]","Max Zs [Ω]","Minősítés","Hiba kat.","Hiba leírás",""];
-  const st = 'background:#102536;color:#fff;font-size:10px;font-weight:700;' +
-             'text-transform:uppercase;padding:4px 6px;' +
-             'align-items:center;overflow:hidden;';
-  return '<div class="grid-row hurok-row-13" style="background:#102536;">' +
-    cols.map(h => '<div style="' + st + '">' + h + '</div>').join('') +
-    '</div>';
+  var cols = ["Ssz.","Típus","Mérési pont / megnevezés","Mód","Elosztó","Megszakító","PE","Érték [Ω]","Max Zs","Minősítés","Hiba kat.","Hiba",""];
+  // Desktop és mobil oszlopszélességek pontosan egyeznek a CSS grid-del
+  var isMobile = window.innerWidth <= 640;
+  var widths = isMobile
+    ? [48, 72, 220, 72, 100, 90, 72, 90, 72, 100, 90, 180, 36]   // mobil: grid-template-columns
+    : [52, 80, 260, 80, 110, 100, 80, 100, 80, 110, 100, 200, 36]; // desktop
+  var tds = cols.map(function(h,i){
+    return '<td style="width:'+widths[i]+'px;padding:4px 3px;color:#fff;font-size:9px;font-weight:800;text-transform:uppercase;white-space:nowrap;overflow:hidden;border-right:1px solid #1e3f5a;box-sizing:border-box;">'+h+'</td>';
+  }).join('');
+  var totalW = widths.reduce(function(a,b){return a+b;},0);
+  return '<table style="border-collapse:collapse;background:#0d1f2d;width:'+totalW+'px;table-layout:fixed;"><tbody><tr>'+tds+'</tr></tbody></table>';
 }
 
 function renderHurokTable() {
@@ -469,6 +482,7 @@ function renderHurokTable() {
     const rowsHtml = rows.map((row, localIdx) => {
       const limit = BREAKER_LIMITS[(row.breaker||"").trim().toUpperCase()];
       const limitStr = limit !== undefined ? limit.toFixed(2) : "–";
+      const isKsz = String(row.valueOhm||"").trim().toUpperCase() === "KSZ";
       const displayNo = localIdx + 1; // 1-től indul minden helyiségben
       return `<div class="grid-row hurok-row-13">
         ${cell(`<span class="row-no-badge">${displayNo}</span>`)}
@@ -477,10 +491,12 @@ function renderHurokTable() {
         ${cell(selectHtml("hurok",row.id,"modeClass",["I","II"],row.modeClass))}
         ${cell(`<input data-hurok="${row.id}" data-field="distributor" value="${escapeHtml(row.distributor)}">`)}
         ${cell(`<input data-hurok="${row.id}" data-field="breaker" value="${escapeHtml(row.breaker)}">`)}
-        ${cell(selectHtml("hurok",row.id,"pe",["-","OK","nem OK"],row.pe))}
+        ${cell(`<span style="font-weight:700;color:${row.pe==='OK'?'#1f9d55':row.pe==='nem OK'?'#c92a2a':'#8792a2'}">${row.pe||'-'}</span>`)}
         ${cell(`<input data-hurok="${row.id}" data-field="valueOhm" value="${escapeHtml(row.valueOhm)}">`)}
-        ${cell(`<span class="limit-badge ${limitStr!=="–"?"":"limit-unknown"}">${limitStr}</span>`)}
-        ${cell(selectHtml("hurok",row.id,"status",["","MF","NMF","NA"],row.status))}
+        ${cell(`<span class="limit-badge ${isKsz?"ksz-badge":limitStr!=="–"?"":"limit-unknown"}">${isKsz?"KSZ ✓":limitStr}</span>`)}
+        ${cell(`<select data-hurok="${row.id}" data-field="status" style="${row.manualStatus?'border:2px solid #e67700;':''}">
+          ${'<option value="">–</option><option value="MF" '+((row.status==="MF")?"selected":"")+'>MF</option><option value="NMF" '+((row.status==="NMF")?"selected":"")+'>NMF</option><option value="NA" '+((row.status==="NA")?"selected":"")+'>NA</option>'}
+        </select>`)}
         ${cell(selectHtml("hurok",row.id,"severity",["","A","B","C","D"],row.severity))}
         ${cell(`<input data-hurok="${row.id}" data-field="fault" value="${escapeHtml(row.fault)}">`)}
         ${cell(`<button class="row-delete-btn" data-delete-hurok="${row.id}" title="Sor törlése">×</button>`)}
@@ -503,10 +519,8 @@ function renderHurokTable() {
             <button class="room-add-btn" data-add-room-rows="${room.id}" data-row-type="hurok">+ 10 Hurok sor</button>
             <button class="room-add-btn room-add-eph" data-add-room-rows="${room.id}" data-row-type="eph">+ 10 EPH sor</button>
           </div>
-          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-y:visible;">
-            ${hurokHeaderRow()}
-            ${rowsHtml}
-          </div>` : ""}
+          ${hurokHeaderRow()}
+          ${rowsHtml}` : ""}
       </div>
     </div>`;
   }).join("");
@@ -516,13 +530,16 @@ function renderHurokTable() {
 
 // ─── AVK TÁBLA ───────────────────────────────────────────────────────────────
 function avkHeaderRow() {
-  const cols = ["Ssz.","Jele","Típus","In [A]","Δn [mA]","Un [V]","pólus","IΔn [mA]","t [ms]","MP","SZV","Minősítés","Hiba kat.","Hiba",""];
-  const st = 'background:#102536;color:#fff;font-size:10px;font-weight:700;' +
-             'text-transform:uppercase;padding:4px 6px;' +
-             'align-items:center;overflow:hidden;';
-  return '<div class="grid-row avk-row-15" style="background:#102536;">' +
-    cols.map(h => '<div style="' + st + '">' + h + '</div>').join('') +
-    '</div>';
+  var cols = ["Ssz.","Jele","Típus","In [A]","Δn [mA]","Un [V]","pólus","IΔn [mA]","t [ms]","MP","SZV","Minősítés","Hiba kat.","Hiba",""];
+  var isMobile = window.innerWidth <= 640;
+  var widths = isMobile
+    ? [48, 90, 130, 64, 74, 64, 60, 84, 84, 56, 56, 94, 90, 160, 36]   // mobil
+    : [52, 100, 140, 70, 80, 70, 66, 90, 90, 60, 60, 100, 96, 160, 36]; // desktop
+  var tds = cols.map(function(h,i){
+    return '<td style="width:'+widths[i]+'px;padding:4px 3px;color:#fff;font-size:9px;font-weight:800;text-transform:uppercase;white-space:nowrap;overflow:hidden;border-right:1px solid #1e3f5a;box-sizing:border-box;">'+h+'</td>';
+  }).join('');
+  var totalW = widths.reduce(function(a,b){return a+b;},0);
+  return '<table style="border-collapse:collapse;background:#0d1f2d;width:'+totalW+'px;table-layout:fixed;"><tbody><tr>'+tds+'</tr></tbody></table>';
 }
 
 function renderAvkTable() {
@@ -600,10 +617,8 @@ function renderAvkTable() {
           <div class="room-section-actions">
             <button class="room-add-btn" data-add-avk-dist-rows="${dist.id}">+ 10 AVK sor</button>
           </div>
-          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-y:visible;">
-            ${avkHeaderRow()}
-            ${rowsHtml}
-          </div>` : ""}
+          ${avkHeaderRow()}
+          ${rowsHtml}` : ""}
       </div>
     </div>`;
   }).join("");
@@ -891,10 +906,13 @@ function showView(id) {
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));
   // Topbar egyszerűsítése beviteli nézetekben
   const ws = document.querySelector(".workspace");
+  const sidebar = document.querySelector(".sidebar");
   if (TABLE_VIEWS.has(id)) {
     ws.classList.add("view-table");
+    if (sidebar) sidebar.classList.add("table-view-active");
   } else {
     ws.classList.remove("view-table");
+    if (sidebar) sidebar.classList.remove("table-view-active");
   }
 }
 
@@ -908,23 +926,43 @@ function isTableCell(t) {
 function applyWorkspaceValue(t) {
   if (t.dataset.hurok) {
     updateRow(state.hurokRows, t.dataset.hurok, t.dataset.field, t.value);
-    // Auto-minősítés: ha breaker vagy valueOhm változott
-    if (t.dataset.field==="valueOhm"||t.dataset.field==="breaker") {
+    // Auto-minősítés hurok mezőknél
+    const hurokAutoFields = ["valueOhm","breaker","fault","severity","pe"];
+    if (hurokAutoFields.includes(t.dataset.field)) {
       const row = state.hurokRows.find(r=>r.id===t.dataset.hurok);
       if (row) {
-        // PE auto
-        if (t.dataset.field==="valueOhm") row.pe = t.value?"OK":"-";
-        // Auto status csak ha a user nem manuálisan állította (status mező nem ez a target)
-        const newStatus = autoStatus(row.breaker, row.valueOhm, row.fault, row.severity);
-        if (newStatus) row.status = newStatus;
+        // PE auto: ha valueOhm-ba írnak értéket -> PE = OK, ha üres -> "-"
+        if (t.dataset.field==="valueOhm") {
+          const v = String(t.value || "").trim();
+          if (v === "" || v === "-") {
+            row.pe = "-";
+          } else if (v.toUpperCase() === "KSZ") {
+            row.pe = "-"; // KSZ = kettős szigetelés, nincs PE mérés
+          } else {
+            row.pe = "OK"; // Ha van mért érték -> PE folytonosság rendben
+          }
+        }
+        // PE mező közvetlen szerkesztés: ha 2.0 Ohm-nál nagyobb szám -> nem OK
+        if (t.dataset.field==="pe" && t.value && t.value!=="-") {
+          const peVal = parseFloat(String(t.value).replace(",","."));
+          if (!isNaN(peVal)) row.pe = peVal <= 2.0 ? "OK" : "nem OK";
+        }
+        // KSZ esetén: MF, nincs PE, nincs limit
+        if (String(row.valueOhm).trim().toUpperCase() === "KSZ") {
+          row.status = row.manualStatus ? row.status : "MF";
+        } else {
+          // Auto status - csak ha nincs kézi felülírás
+          if (!row.manualStatus) {
+            const newStatus = autoStatus(row.breaker, row.valueOhm, row.fault, row.severity);
+            if (newStatus) row.status = newStatus;
+          }
+        }
       }
     }
-    if (t.dataset.field==="fault"||t.dataset.field==="severity") {
+    // Ha a user KÉZZEL állítja a status-t → manualStatus flag
+    if (t.dataset.field === "status") {
       const row = state.hurokRows.find(r=>r.id===t.dataset.hurok);
-      if (row) {
-        const newStatus = autoStatus(row.breaker, row.valueOhm, row.fault, row.severity);
-        if (newStatus) row.status = newStatus;
-      }
+      if (row) row.manualStatus = true;
     }
   }
   if (t.dataset.avk) {
@@ -971,9 +1009,13 @@ function applyWorkspaceValue(t) {
 }
 
 function handleWorkspaceInput(event) {
-  applyWorkspaceValue(event.target);
+  const t = event.target;
+  applyWorkspaceValue(t);
   saveState();
-  if (isTableCell(event.target)) renderScoreOnly();
+  // Hurok valueOhm vagy fault input: DOM-ban a PE és Minősítés frissítése kell
+  // DE: gépelés közben NEM renderelünk (fókusz elveszne)
+  // Csak renderScoreOnly fut gépeléskor
+  if (isTableCell(t)) renderScoreOnly();
   else render();
 }
 
@@ -981,11 +1023,15 @@ function handleWorkspaceChange(event) {
   const t = event.target;
   applyWorkspaceValue(t);
   saveState();
-  // Ha AVK unV változott → pólus is frissül a DOM-ban, kell renderAvkTable
+  // Hurok: breaker select változott → auto status frissítése + tábla újrarajzolás
+  if (t.dataset.hurok && ["breaker","type","modeClass","severity","status","pe"].includes(t.dataset.field)) {
+    renderHurokTable(); renderScoreOnly(); return;
+  }
+  // AVK unV változott → pólus frissül
   if (t.dataset.avk && t.dataset.field === "unV") {
     renderAvkTable(); renderScoreOnly(); return;
   }
-  // Ha AVK mért értékek változtak → status frissül, renderAvkTable kell
+  // AVK mért értékek → status frissül
   if (t.dataset.avk && ["mp","szv","deltaMa"].includes(t.dataset.field)) {
     renderAvkTable(); renderScoreOnly(); return;
   }
@@ -1307,6 +1353,16 @@ function wireEvents() {
   document.querySelector(".workspace").addEventListener("input",  handleWorkspaceInput);
   document.querySelector(".workspace").addEventListener("change", handleWorkspaceChange);
   document.querySelector(".workspace").addEventListener("click",  handleWorkspaceClick);
+  // Blur: valueOhm/fault/breaker mezőkből kilépve frissítjük a táblát (auto status megjelenítés)
+  document.querySelector(".workspace").addEventListener("blur", function(e) {
+    const t = e.target;
+    if (t.dataset.hurok && ["valueOhm","fault","breaker"].includes(t.dataset.field)) {
+      renderHurokTable(); renderScoreOnly();
+    }
+    if (t.dataset.avk && ["iDeltaMa","timeMs","deltaMa"].includes(t.dataset.field)) {
+      renderAvkTable(); renderScoreOnly();
+    }
+  }, true);
   document.querySelector("#regenerateProtocol").addEventListener("click",()=>{
     state.protocolBodies={hurok:makeProtocolBody("hurok"),avk:makeProtocolBody("avk"),eloszto:makeProtocolBody("eloszto")};
     saveState(); render();

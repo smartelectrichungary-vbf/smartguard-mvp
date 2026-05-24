@@ -339,8 +339,14 @@ def fill_alapdok(state, out_path):
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 
 def main():
-    state    = json.loads(sys.argv[1])
-    out_dir  = sys.argv[2] if len(sys.argv) > 2 else '.'
+    # sys.argv[1] lehet JSON string VAGY fájlútvonal
+    arg1 = sys.argv[1]
+    if os.path.isfile(arg1):
+        with open(arg1, 'r', encoding='utf-8') as _f:
+            state = json.load(_f)
+    else:
+        state = json.loads(arg1)
+    out_dir = sys.argv[2] if len(sys.argv) > 2 else '.'
     doc_type = state.pop('_docType', 'both')
     pn       = state.get('protocolNumbers') or {}
     outputs  = []
