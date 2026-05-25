@@ -7,6 +7,8 @@
   --wash: #f3f6f9;
   --blue: #0f5d8f;
   --blue-2: #1478b8;
+  --royal: #0b5fd4;
+  --sky: #1b8ff5;
   --green: #1f9d55;
   --lime: #74b816;
   --yellow: #f2b705;
@@ -44,7 +46,7 @@ button {
 }
 
 .sidebar {
-  background: #102536;
+  background: linear-gradient(180deg, #0a1b30 0%, #071324 100%);
   color: #fff;
   padding: 24px;
   display: flex;
@@ -63,10 +65,13 @@ button {
   place-items: center;
   width: 48px;
   height: 48px;
-  border-radius: 8px;
-  background: #0f7ac0;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #1b8ff5, #0b5fd4);
+  box-shadow: 0 6px 18px rgba(11, 95, 212, 0.5);
   font-weight: 800;
+  overflow: hidden;
 }
+.brand-mark img { width: 36px; height: 36px; object-fit: contain; }
 
 .brand strong,
 .brand span {
@@ -106,8 +111,9 @@ button {
 }
 
 .nav-item.active {
-  background: #ffffff;
-  color: #102536;
+  background: linear-gradient(135deg, #ffd200, #f2b705);
+  color: #1a1500;
+  font-weight: 800;
 }
 
 .site-panel {
@@ -263,7 +269,7 @@ h2 {
 }
 
 .primary {
-  background: var(--blue);
+  background: linear-gradient(135deg, var(--royal), #0a4fb0);
   color: #fff;
 }
 
@@ -819,8 +825,20 @@ h2 {
 }
 
 @media (max-width: 640px) {
+  /* Mobil: a grid sidebar-sora ne nyúljon szét (ne maradjon üres hely a
+     nav alatt a tartalom fölött) – a workspace töltse ki a maradék magasságot */
+  .app-shell {
+    grid-template-rows: auto 1fr;
+  }
   .workspace {
     padding: 14px;
+  }
+
+  /* TABLE nézetekben a topbar el van rejtve mobilon - a section-head mutatja a nézet nevét */
+  .workspace.view-table .topbar {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .topbar,
