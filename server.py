@@ -37,7 +37,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split('?')[0]
-        if path == '/': path = '/index.html'
+        if path == '/': path = '/login.html'
         file_path = os.path.normpath(os.path.join(BASE_DIR, path.lstrip('/')))
         if not file_path.startswith(BASE_DIR):
             self.send_error(403); return

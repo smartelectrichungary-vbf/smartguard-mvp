@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b5fd4" />
+  <title>SMARTGuard – Belépés</title>
+  <style>
+    :root{
+      --royal:#0b5fd4; --royal-2:#0a4fb0; --sky:#1b8ff5;
+      --navy:#0a1b30; --navy-2:#071324; --panel:#0e2742;
+      --yellow:#ffd200; --yellow-2:#f2b705;
+      --green:#2fcf6f; --muted:#9fb6d0; --line:#1d3a5c; --field:#0d2238;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Arial,Helvetica,sans-serif; color:#eaf3ff;
+      background:var(--navy); -webkit-font-smoothing:antialiased;
+      display:flex; flex-direction:column; min-height:100%;
+    }
+    .topband{
+      background:linear-gradient(90deg,var(--royal-2),var(--royal) 55%,var(--sky));
+      color:#fff; font-size:13.5px; font-weight:600;
+      display:flex; align-items:center; justify-content:center; gap:30px;
+      padding:11px 18px; flex-wrap:wrap; letter-spacing:.01em;
+    }
+    .topband span{display:inline-flex; align-items:center; gap:8px; opacity:.96}
+    .main{
+      position:relative; flex:1; display:flex; align-items:center; justify-content:center;
+      padding:30px 22px; overflow:hidden;
+    }
+    .main::before{
+      content:""; position:absolute; inset:0; z-index:0;
+      background:
+        radial-gradient(900px 520px at 16% -10%, rgba(27,143,245,.30), transparent 60%),
+        radial-gradient(820px 600px at 105% 115%, rgba(47,207,111,.12), transparent 55%),
+        linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 100%);
+    }
+    .main::after{
+      content:""; position:absolute; inset:0; z-index:0; opacity:.06;
+      background-image:linear-gradient(#7fd0ff 1px,transparent 1px),linear-gradient(90deg,#7fd0ff 1px,transparent 1px);
+      background-size:44px 44px;
+      mask-image:radial-gradient(circle at 50% 42%, #000 0%, transparent 72%);
+    }
+    .stack{position:relative; z-index:1; width:100%; max-width:430px}
+    .card{
+      background:rgba(14,39,66,.72); border:1px solid rgba(27,143,245,.22);
+      border-radius:20px; padding:38px 34px 30px;
+      box-shadow:0 30px 80px rgba(0,0,0,.5); backdrop-filter:blur(7px);
+      animation:rise .55s cubic-bezier(.2,.7,.2,1) both;
+    }
+    @keyframes rise{from{opacity:0; transform:translateY(18px)}to{opacity:1; transform:none}}
+    .brand{display:flex; align-items:center; gap:14px; margin-bottom:28px}
+    .brand-logo{
+      width:54px; height:54px; border-radius:13px; display:grid; place-items:center; flex:none;
+      background:linear-gradient(135deg,#1b8ff5,#0b5fd4);
+      box-shadow:0 8px 22px rgba(11,95,212,.5); overflow:hidden;
+    }
+    .brand-logo img{width:40px; height:40px; object-fit:contain}
+    .brand .nm{font-size:21px; font-weight:800; letter-spacing:.3px; line-height:1.05}
+    .brand .nm b{color:var(--yellow)}
+    .brand .tg{display:block; font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.16em; margin-top:4px}
+    h1{font-size:18px; margin:0 0 4px; font-weight:800}
+    .sub{font-size:13.5px; color:var(--muted); margin:0 0 24px}
+    label{display:block; font-size:12px; color:var(--muted); margin:0 0 7px; letter-spacing:.04em}
+    .field{
+      width:100%; padding:13px 14px; margin-bottom:17px;
+      background:var(--field); color:#fff; border:1px solid var(--line); border-radius:11px;
+      font-size:15px; transition:border-color .15s, box-shadow .15s;
+    }
+    .field::placeholder{color:#5f7c97}
+    .field:focus{outline:none; border-color:var(--sky); box-shadow:0 0 0 3px rgba(27,143,245,.28)}
+    .btn{
+      width:100%; padding:14px; border:0; border-radius:11px;
+      background:linear-gradient(135deg,var(--yellow),var(--yellow-2));
+      color:#1a1500; font-size:15.5px; font-weight:800; letter-spacing:.02em;
+      cursor:pointer; transition:transform .12s, box-shadow .2s, filter .2s;
+      box-shadow:0 10px 26px rgba(242,183,5,.4);
+    }
+    .btn:hover{filter:brightness(1.05); box-shadow:0 12px 32px rgba(242,183,5,.52)}
+    .btn:active{transform:translateY(1px)}
+    .hint{margin:16px 0 0; text-align:center; font-size:12px; color:#6f8aa6}
+    .foot{margin-top:20px; text-align:center; font-size:11.5px; color:#5f7c97; letter-spacing:.03em}
+  </style>
+</head>
+<body>
+  <div class="topband">
+    <span><b>SMART</b>Guard&nbsp;<span style="opacity:.8;font-weight:400">platform</span></span>
+  </div>
+  <div class="main">
+    <div class="stack">
+      <form class="card" id="loginForm" autocomplete="off">
+        <div class="brand">
+          <div class="brand-logo">
+            <img src="./logo_icon.png" alt="Smart Electric Hungary" />
+          </div>
+          <div>
+            <div class="nm"><b>SMART</b>Guard</div>
+            <span class="tg">Smart Electric Hungary</span>
+          </div>
+        </div>
+        <h1>Belépés</h1>
+        <p class="sub">Jelentkezz be a SMARTGuard rendszer eléréséhez.</p>
+        <label for="user">Felhasználónév</label>
+        <input class="field" id="user" type="text" placeholder="pl. nyikos.daniel" autocomplete="username" />
+        <label for="pass">Jelszó</label>
+        <input class="field" id="pass" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="current-password" />
+        <button class="btn" type="submit">Belépés &#8594;</button>
+        <p class="hint">Demó belépés – elég a „Belépés" gombra kattintani.</p>
+      </form>
+      <div class="foot">© 2026 Smart Electric Hungary Kft. · SMARTGuard® platform</div>
+    </div>
+  </div>
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      try {
+        sessionStorage.setItem("sg-auth", "1");
+        var u = document.getElementById("user").value.trim();
+        if (u) localStorage.setItem("sg-user", u);
+      } catch (err) {}
+      window.location.href = "./hub.html";
+    });
+  </script>
+</body>
+</html>

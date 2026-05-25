@@ -1,3 +1,31 @@
+# SMARTGuard – v26 (frissítés)
+
+Ebben a verzióban **csak a `fill_templates.py` módosult**, minden más fájl változatlan.
+
+## Mi változott
+- **Hurok+EPH jegyzőkönyv:** a helyiség neve már NEM a tételek mellett jelenik meg, hanem
+  teljes szélességű, **halványszürke sorként** a táblázatban (mint a kézi Word-ben). A sorszámozás
+  végig **folyamatos** (1, 2, 3 …), a szürke sorok nincsenek beszámozva. A korábbi sok felesleges
+  üres oldal is megszűnt (egyetlen, automatikusan tördelő, ismétlődő fejlécű táblázat).
+- **Alapdokumentáció:** megszűnt a felesleges **üres oldal** (a Hibajegyzék és az Útmutató között).
+  Ok: oldalt megtöltő tábla után a kézi oldaltörés plusz üres oldalt szült Wordben – ezt
+  `pageBreakBefore`-ra cseréltük.
+
+## FONTOS – templates mappa
+A `templates/` mappában **3** Word-sablonnak kell lennie:
+- `60364-6_HUROKIMP.docx`  ✅ (mellékelve)
+- `MSZ_HD_60364-6_Alapdok.docx`  ✅ (mellékelve)
+- `AVK_JK_2025.docx`  ✅ (mellékelve)
+
+## Indítás (helyi teszt)
+```
+pip install -r requirements.txt
+python server.py 5000
+```
+Megnyitás: http://127.0.0.1:5000  (telefonról a fekete ablakban kiírt IP-n)
+
+---
+
 # SMARTGuard helyszíni MVP
 
 Ez egy első, böngészőből futó SMARTGuard prototípus. A célja, hogy gyorsan lehessen kipróbálni a helyszíni VBF adatfelvétel, SMARTScore, hibalista és riport logikáját iPad/iPhone jellegű felületen.

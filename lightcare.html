@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b5fd4" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <title>Smart LightCare – Világítás-felmérés</title>
+  <script>
+    // Belépés-őr (kamu, mint a többi oldalon)
+    try { if (sessionStorage.getItem("sg-auth") !== "1") location.replace("./login.html"); } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="./lightcare.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo"><img src="./logo_icon.png" alt="Smart Electric" /></div>
+        <div>
+          <strong>Smart <span class="y">LightCare</span></strong>
+          <span>Világítás-korszerűsítési felmérés</span>
+        </div>
+      </div>
+      <a class="back-hub" href="./hub.html">← Modulok</a>
+      <nav class="nav" aria-label="Fő navigáció">
+        <button class="nav-item active" data-view="dashboard">Áttekintés</button>
+        <button class="nav-item" data-view="alap">Alapadatok</button>
+        <button class="nav-item" data-view="lampak">Lámpa-felmérés</button>
+        <button class="nav-item" data-view="lux">Lux / élettani</button>
+        <button class="nav-item" data-view="megterules">Megtérülés</button>
+        <button class="nav-item" data-view="ajanlat">Árajánlat</button>
+        <button class="nav-item" data-view="beallitasok">Beállítások</button>
+      </nav>
+      <div class="sync" id="sync">Mentve</div>
+    </aside>
+
+    <main class="workspace">
+      <div class="topbar">
+        <h1 id="siteTitle">Új felmérés</h1>
+      </div>
+
+      <!-- ÁTTEKINTÉS -->
+      <section class="view active" id="dashboard">
+        <div class="score-hero">
+          <div class="score-circle" id="scoreCircle">
+            <div class="score-number" id="scoreNumber">–</div>
+            <div class="score-max">/ 100</div>
+          </div>
+          <div class="score-meta">
+            <div class="score-label" id="scoreLabel">Még nincs adat</div>
+            <p class="score-sub" id="scoreSub">Vidd fel a lámpákat a felmérés indításához.</p>
+            <div class="sub-scores">
+              <div class="sub"><span>Energiahatékonyság</span><b id="sEnergy">–</b></div>
+              <div class="sub"><span>Komfort / lux</span><b id="sComfort">–</b></div>
+              <div class="sub"><span>Technológia</span><b id="sTech">–</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cards">
+          <div class="card kpi"><span class="kpi-l">Jelenlegi fogyasztás</span><span class="kpi-v" id="kCur">0 kWh/év</span></div>
+          <div class="card kpi"><span class="kpi-l">LED utáni fogyasztás</span><span class="kpi-v" id="kLed">0 kWh/év</span></div>
+          <div class="card kpi"><span class="kpi-l">Éves megtakarítás</span><span class="kpi-v hl" id="kSave">0 Ft/év</span></div>
+          <div class="card kpi"><span class="kpi-l">Megtérülés (kedvezmény nélkül)</span><span class="kpi-v" id="kPb">– év</span></div>
+        </div>
+
+        <div class="section-head"><h2>Fő megállapítások</h2></div>
+        <ul class="findings" id="findings"><li>Még nincs elég adat a megállapításokhoz.</li></ul>
+      </section>
+
+      <!-- ALAPADATOK -->
+      <section class="view" id="alap">
+        <div class="section-head"><h2>Alapadatok</h2></div>
+        <div class="form-grid" id="alapForm"></div>
+      </section>
+
+      <!-- LÁMPA-FELMÉRÉS -->
+      <section class="view table-view" id="lampak">
+        <div class="section-head"><h2>Lámpa-felmérés</h2></div>
+        <button class="primary" id="addLampBtn">+ 10 lámpa sor</button>
+        <div class="table-wrap"><table class="data-table" id="lampTable"></table></div>
+      </section>
+
+      <!-- LUX / ÉLETTANI -->
+      <section class="view table-view" id="lux">
+        <div class="section-head"><h2>Lux / élettani felmérés</h2></div>
+        <p class="hint" id="luxHint">A kategóriánkénti elvárt lux-értékeket a Beállítások fülön add meg. Itt a felmért helyiségek mért luxát rögzítheted, és a rendszer jelzi az eltérést.</p>
+        <div class="table-wrap"><table class="data-table" id="luxTable"></table></div>
+      </section>
+
+      <!-- MEGTÉRÜLÉS -->
+      <section class="view" id="megterules">
+        <div class="section-head"><h2>Megtérülési számítás</h2></div>
+        <div class="payback-grid" id="paybackGrid"></div>
+        <div class="section-head"><h2>5 éves kumulált megtakarítás</h2></div>
+        <div class="table-wrap"><table class="data-table" id="cumTable"></table></div>
+      </section>
+
+      <!-- ÁRAJÁNLAT -->
+      <section class="view table-view" id="ajanlat">
+        <div class="section-head"><h2>Árajánlat – LED termékek</h2></div>
+        <p class="hint">A tételek a Lámpa-felmérésből, <b>javasolt LED típus</b> szerint összegezve. Add meg típusonként a nettó ár/db-ot és (ha van) a kivitelezési ár/db-ot.</p>
+        <div class="table-wrap"><table class="data-table" id="quoteTable"></table></div>
+        <div class="payback-grid" id="quoteTotals" style="margin-top:16px"></div>
+        <button class="primary" id="printQuoteBtn" style="margin-top:16px;max-width:320px">🖨️ Árajánlat PDF (nyomtatás)</button>
+        <button class="primary" id="printExecBtn" style="max-width:320px;background:linear-gradient(135deg,#102536,#0f5d8f)">🖨️ Vezetői riport PDF (nyomtatás)</button>
+      </section>
+
+      <!-- BEÁLLÍTÁSOK -->
+      <section class="view" id="beallitasok">
+        <div class="section-head"><h2>Beállítások</h2></div>
+        <div class="form-grid" id="settForm"></div>
+        <div class="section-head"><h2>Kategória → elvárt lux (MSZ EN 12464-1 alapján, szerkeszthető)</h2></div>
+        <p class="hint">Add meg helyiség-kategóriánként az elvárt megvilágítást (lux). Ezt használja a Lux/élettani fül az eltérés jelzéséhez.</p>
+        <div class="table-wrap"><table class="data-table" id="luxRefTable"></table></div>
+      </section>
+    </main>
+  </div>
+  <script src="./lightcare.js"></script>
+</body>
+</html>

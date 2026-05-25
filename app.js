@@ -1,3 +1,6 @@
+/* SMARTGuard frontend – V26 (AVK +/+ default, hurok input debounce, mobil layout fix) */
+console.log("%cSMARTGuard app.js V26 betöltve","background:#0f7ac0;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold");
+
 function uid() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
   return `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
@@ -240,13 +243,36 @@ function emptyHurokRow(no, roomId, room, type) {
 
 function emptyAvkRow(no, distributorId, place, type) {
   return { id:uid(), no, distributorId:distributorId||"", place:place||"", mark:"", type:type||"Schrack",
-    inA:"16", deltaMa:"30", unV:"230", poles:"2", iDeltaMa:"", timeMs:"", mp:"", szv:"", status:"", severity:"", fault:"" };
+    inA:"16", deltaMa:"30", unV:"230", poles:"2", iDeltaMa:"", timeMs:"", mp:"+", szv:"+", status:"", severity:"", fault:"" };
 }
 
 function saveState(source) {
   localStorage.setItem(storageKey, JSON.stringify(state));
   setSyncState("Mentve");
-  if (channel && source !== "remote") channel.postMessage(state);
+  if (channel && source !== "remote") _broadcastDebounced();
+}
+// A localStorage-mentés AZONNALI (nincs adatvesztés), de a fülek közti
+// broadcastot debounce-oljuk: gépelés közben ne küldjünk minden leütésre
+// teljes state-et a többi fülnek (az ott teljes render()-t indítana).
+var _broadcastTimer = null;
+function _broadcastDebounced() {
+  if (_broadcastTimer) clearTimeout(_broadcastTimer);
+  _broadcastTimer = setTimeout(function () {
+    _broadcastTimer = null;
+    try { channel.postMessage(state); } catch (e) {}
+  }, 350);
+}
+// Másik fülből érkező state: a teljes render()-t debounce-oljuk, hogy egy
+// gyors gépelési sorozat ne indítson minden üzenetre teljes újrarajzolást.
+var _remoteData = null, _remoteTimer = null;
+function _remoteRenderDebounced() {
+  if (_remoteTimer) clearTimeout(_remoteTimer);
+  _remoteTimer = setTimeout(function () {
+    _remoteTimer = null;
+    state = migrateState(_remoteData);
+    saveState("remote");
+    render();
+  }, 250);
 }
 function setSyncState(text) {
   document.querySelector("#syncState").textContent = text;
@@ -353,6 +379,19 @@ function renderScoreOnly() {
   renderCriticalList();
   renderClientViews();
   renderReports(); // Riport fül is azonnal frissül!
+}
+
+// Gépelés közbeni teljesítmény: a nehéz pontszám-/riport-újraszámítást
+// debounce-oljuk, hogy ne fusson le minden egyes billentyűleütésre
+// (nagy adathalmaznál ez okozta a lefagyást). A blur-kezelő úgyis
+// azonnal frissít, amikor kilépsz a mezőből.
+var _scoreDebounceTimer = null;
+function renderScoreOnlyDebounced() {
+  if (_scoreDebounceTimer) clearTimeout(_scoreDebounceTimer);
+  _scoreDebounceTimer = setTimeout(function () {
+    _scoreDebounceTimer = null;
+    renderScoreOnly();
+  }, 250);
 }
 
 function renderCriticalList() {
@@ -1014,8 +1053,8 @@ function handleWorkspaceInput(event) {
   saveState();
   // Hurok valueOhm vagy fault input: DOM-ban a PE és Minősítés frissítése kell
   // DE: gépelés közben NEM renderelünk (fókusz elveszne)
-  // Csak renderScoreOnly fut gépeléskor
-  if (isTableCell(t)) renderScoreOnly();
+  // Csak renderScoreOnly fut gépeléskor – DEBOUNCE-olva (nagy adatnál ne fagyjon)
+  if (isTableCell(t)) renderScoreOnlyDebounced();
   else render();
 }
 
@@ -1353,10 +1392,14 @@ function wireEvents() {
   document.querySelector(".workspace").addEventListener("input",  handleWorkspaceInput);
   document.querySelector(".workspace").addEventListener("change", handleWorkspaceChange);
   document.querySelector(".workspace").addEventListener("click",  handleWorkspaceClick);
-  // Blur: valueOhm/fault/breaker mezőkből kilépve frissítjük a táblát (auto status megjelenítés)
+  // Blur: valueOhm/fault kilépéskor frissítjük a táblát - DE csak ha a fókusz KÍVÜL megy
   document.querySelector(".workspace").addEventListener("blur", function(e) {
     const t = e.target;
-    if (t.dataset.hurok && ["valueOhm","fault","breaker"].includes(t.dataset.field)) {
+    // RelatedTarget: ahova a fókusz megy. Ha workspace-en belül marad -> NEM renderelünk
+    var relTarget = e.relatedTarget;
+    var ws = document.querySelector(".workspace");
+    if (relTarget && ws && ws.contains(relTarget)) return; // workspace-en belüli fókuszváltás -> skip
+    if (t.dataset.hurok && ["valueOhm","fault"].includes(t.dataset.field)) {
       renderHurokTable(); renderScoreOnly();
     }
     if (t.dataset.avk && ["iDeltaMa","timeMs","deltaMa"].includes(t.dataset.field)) {
@@ -1403,7 +1446,7 @@ function wireEvents() {
   document.querySelector("#downloadAlapdokWord").addEventListener("click", () => downloadWordDocs("alapdok"));
   const btn2 = document.querySelector("#downloadAlapdokWord2");
   if (btn2) btn2.addEventListener("click", () => downloadWordDocs("alapdok"));
-  if(channel) channel.addEventListener("message",e=>{state=migrateState(e.data);saveState("remote");render();});
+  if(channel) channel.addEventListener("message",e=>{ _remoteData = e.data; _remoteRenderDebounced(); });
 
   // ─── Ajánlat event kezelők ───────────────────────────────────
   var ajanlatSection = document.querySelector("#ajanlat");
