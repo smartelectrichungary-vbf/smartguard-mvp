@@ -5,7 +5,15 @@ Az eredeti sablon formátumát TELJESEN megtartja.
 Csak a szöveg tartalmát cseréli, minden stílus változatlan marad.
 """
 import sys, json, os, io, zipfile, copy
-from lxml import etree
+try:
+    from lxml import etree
+except ImportError:
+    sys.stderr.write(
+        "HIANYZO FUGGOSEG: az 'lxml' csomag nincs telepitve ebben a Python kornyezetben.\n"
+        "Megoldas: pip install lxml   (vagy: " + sys.executable + " -m pip install lxml)\n"
+        "Renderen: a requirements.txt tartalmazza-e az 'lxml>=4.9.0' sort, es lefutott-e a build.\n"
+    )
+    sys.exit(1)
 
 NS  = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 W   = lambda tag: f'{{{NS}}}{tag}'
@@ -673,18 +681,23 @@ def main():
     pn       = state.get('protocolNumbers') or {}
     outputs  = []
 
+    import re as _re
+    def safe_name(s):
+        # fájlnévbe nem tehető karakterek cseréje (pl. perjel a munkaszámban: MM-26/81)
+        return _re.sub(r'[\\/:*?"<>|]', '-', str(s)).strip() or 'export'
+
     if doc_type in ('both', 'avk'):
-        p = os.path.join(out_dir, f"AVK_JK_{pn.get('avk', 'export')}.docx")
+        p = os.path.join(out_dir, f"AVK_JK_{safe_name(pn.get('avk', 'export'))}.docx")
         fill_avk(state, p)
         outputs.append(p)
 
     if doc_type in ('both', 'hurok'):
-        p = os.path.join(out_dir, f"HUROK_JK_{pn.get('hurok', 'export')}.docx")
+        p = os.path.join(out_dir, f"HUROK_JK_{safe_name(pn.get('hurok', 'export'))}.docx")
         fill_hurok(state, p)
         outputs.append(p)
 
     if doc_type == 'alapdok':
-        p = os.path.join(out_dir, f"Alapdok_{pn.get('hurok', 'export')}.docx")
+        p = os.path.join(out_dir, f"Alapdok_{safe_name(pn.get('hurok', 'export'))}.docx")
         fill_alapdok(state, p)
         outputs.append(p)
 

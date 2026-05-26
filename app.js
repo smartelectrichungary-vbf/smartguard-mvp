@@ -68,6 +68,19 @@ function autoAvkStatus(row) {
   return ok ? "MF" : "NMF";
 }
 
+// LÁMPATEST-FELISMERÉS: ha a mérési pont megnevezése lámpatestre utal,
+// az eszköz jellemzően II. (kettős/megerősített szigetelésű) osztály,
+// ahol nincs PE és nincs mit mérni (KSZ).
+var LUMINAIRE_WORDS = ["lámpa","lampa","lámpatest","lampatest","armatúra","armatura",
+  "led panel","panel","bulkhead","downlight","downlighter","spot","exit",
+  "vészvilág","veszvilag","reflektor","fénycső","fenycso","mennyezeti","oldalfali",
+  "függeszt","fuggeszt","csillár","csillar","tükörvilág","tukorvilag"];
+function looksLikeLuminaire(text) {
+  var s = String(text || "").toLowerCase();
+  if (!s.trim()) return false;
+  return LUMINAIRE_WORDS.some(function (w) { return s.indexOf(w) !== -1; });
+}
+
 function autoHurokStatus(breaker, valueOhm, fault, severity) {
   if (fault || severity) return "NMF";
   // KSZ = Kettős Szigetelés – szemrevételezéssel megfelelt, nem mérünk
@@ -250,6 +263,19 @@ function saveState(source) {
   localStorage.setItem(storageKey, JSON.stringify(state));
   setSyncState("Mentve");
   if (channel && source !== "remote") _broadcastDebounced();
+}
+
+// Gépelés közbeni mentés: NE írjunk localStorage-ba minden leütésre
+// (nagy adatnál – pl. sok hurok-sor – ez fagyasztotta le a gépet PC-n).
+// A blur/change/gomb események úgyis azonnal mentenek.
+var _saveDebounceTimer = null;
+function saveStateDebounced() {
+  setSyncState("Mentés…");
+  if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
+  _saveDebounceTimer = setTimeout(function () {
+    _saveDebounceTimer = null;
+    saveState();
+  }, 400);
 }
 // A localStorage-mentés AZONNALI (nincs adatvesztés), de a fülek közti
 // broadcastot debounce-oljuk: gépelés közben ne küldjünk minden leütésre
@@ -538,7 +564,7 @@ function renderHurokTable() {
         </select>`)}
         ${cell(selectHtml("hurok",row.id,"severity",["","A","B","C","D"],row.severity))}
         ${cell(`<input data-hurok="${row.id}" data-field="fault" value="${escapeHtml(row.fault)}">`)}
-        ${cell(`<button class="row-delete-btn" data-delete-hurok="${row.id}" title="Sor törlése">×</button>`)}
+        ${cell(`<button class="row-multiply-btn" data-multiply-hurok="${row.id}" title="Sor többszörözése (pl. 50 azonos lámpatest)" style="border:0;background:transparent;cursor:pointer;font-weight:700;color:#0b5fd4;font-size:13px;">⊞×N</button><button class="row-delete-btn" data-delete-hurok="${row.id}" title="Sor törlése">×</button>`)}
       </div>`;
     }).join("");
 
@@ -965,6 +991,17 @@ function isTableCell(t) {
 function applyWorkspaceValue(t) {
   if (t.dataset.hurok) {
     updateRow(state.hurokRows, t.dataset.hurok, t.dataset.field, t.value);
+    // LÁMPATEST-FELISMERÉS: ha a megnevezésbe lámpatestre utaló szót írnak,
+    // és a vonatkozó mezőket még NEM állították kézzel, automatikusan
+    // II. osztály + KSZ + PE "-" (kettős szigetelés, nincs mérendő érték).
+    if (t.dataset.field === "point") {
+      const row = state.hurokRows.find(r => r.id === t.dataset.hurok);
+      if (row && looksLikeLuminaire(t.value)) {
+        if (!row.manualClass && (!row.modeClass || row.modeClass === "I")) row.modeClass = "II";
+        if (!row.manualOhm && !String(row.valueOhm || "").trim()) { row.valueOhm = "KSZ"; row.pe = "-"; }
+        if (!row.manualStatus) row.status = "MF";
+      }
+    }
     // Auto-minősítés hurok mezőknél
     const hurokAutoFields = ["valueOhm","breaker","fault","severity","pe"];
     if (hurokAutoFields.includes(t.dataset.field)) {
@@ -972,6 +1009,7 @@ function applyWorkspaceValue(t) {
       if (row) {
         // PE auto: ha valueOhm-ba írnak értéket -> PE = OK, ha üres -> "-"
         if (t.dataset.field==="valueOhm") {
+          row.manualOhm = true; // a user kézzel állította a mért értéket
           const v = String(t.value || "").trim();
           if (v === "" || v === "-") {
             row.pe = "-";
@@ -1002,6 +1040,11 @@ function applyWorkspaceValue(t) {
     if (t.dataset.field === "status") {
       const row = state.hurokRows.find(r=>r.id===t.dataset.hurok);
       if (row) row.manualStatus = true;
+    }
+    // Ha a user KÉZZEL állítja a mód/osztályt → manualClass flag (ne írja felül az automatika)
+    if (t.dataset.field === "modeClass") {
+      const row = state.hurokRows.find(r=>r.id===t.dataset.hurok);
+      if (row) row.manualClass = true;
     }
   }
   if (t.dataset.avk) {
@@ -1050,12 +1093,10 @@ function applyWorkspaceValue(t) {
 function handleWorkspaceInput(event) {
   const t = event.target;
   applyWorkspaceValue(t);
-  saveState();
-  // Hurok valueOhm vagy fault input: DOM-ban a PE és Minősítés frissítése kell
-  // DE: gépelés közben NEM renderelünk (fókusz elveszne)
-  // Csak renderScoreOnly fut gépeléskor – DEBOUNCE-olva (nagy adatnál ne fagyjon)
-  if (isTableCell(t)) renderScoreOnlyDebounced();
-  else render();
+  // Gépelés közben DEBOUNCE-olt mentés (PC-n a sok soros tábla lefagyott
+  // a minden-leütésre futó szinkron localStorage írástól). Blur/change azonnal ment.
+  if (isTableCell(t)) { saveStateDebounced(); renderScoreOnlyDebounced(); }
+  else { saveState(); render(); }
 }
 
 function handleWorkspaceChange(event) {
@@ -1105,6 +1146,30 @@ function handleWorkspaceClick(event) {
   if (t.dataset.deleteHurok) {
     state.hurokRows = state.hurokRows.filter(r => r.id !== t.dataset.deleteHurok);
     saveState(); renderHurokTable(); renderScoreOnly(); return;
+  }
+
+  // Sor többszörözése: a kijelölt sorról N db másolatot készít (pl. 50 azonos lámpatest)
+  if (t.dataset.multiplyHurok) {
+    const src = state.hurokRows.find(r => r.id === t.dataset.multiplyHurok);
+    if (src) {
+      const ans = window.prompt("Hány DARAB legyen összesen ebből a sorból?\n(Pl. 50 = 49 további másolat jön létre.)", "10");
+      if (ans !== null) {
+        let total = parseInt(String(ans).replace(/\D/g, ""), 10);
+        if (isFinite(total) && total > 1) {
+          if (total > 500) total = 500; // észszerű felső korlát
+          const idx = state.hurokRows.findIndex(r => r.id === src.id);
+          const copies = [];
+          for (let i = 0; i < total - 1; i++) {
+            const c = clone(src);
+            c.id = uid();
+            copies.push(c);
+          }
+          state.hurokRows.splice(idx + 1, 0, ...copies);
+          saveState(); renderHurokTable(); renderScoreOnly();
+        }
+      }
+    }
+    return;
   }
 
   // AVK elosztó toggle
@@ -1398,6 +1463,8 @@ function wireEvents() {
     // RelatedTarget: ahova a fókusz megy. Ha workspace-en belül marad -> NEM renderelünk
     var relTarget = e.relatedTarget;
     var ws = document.querySelector(".workspace");
+    // Kilépéskor a függőben lévő (debounce-olt) mentést azonnal véglegesítjük
+    if (_saveDebounceTimer) { clearTimeout(_saveDebounceTimer); _saveDebounceTimer = null; saveState(); }
     if (relTarget && ws && ws.contains(relTarget)) return; // workspace-en belüli fókuszváltás -> skip
     if (t.dataset.hurok && ["valueOhm","fault"].includes(t.dataset.field)) {
       renderHurokTable(); renderScoreOnly();

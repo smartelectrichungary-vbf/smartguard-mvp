@@ -1,4 +1,7 @@
 node_modules/
+__pycache__/
+*.pyc
 *.zip
 *.bat
-INDITAS.bat
+*.log
+.env

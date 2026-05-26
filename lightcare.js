@@ -65,6 +65,14 @@ function migrate(s){
   var base=clone(initialState);
   for(var k in base){ if(!(k in s)) s[k]=base[k]; }
   if(!Array.isArray(s.lamps)) s.lamps=[];
+  s.lamps.forEach(function(l){
+    if(l.sources==null) l.sources=1;
+    if(l.surface==null) l.surface="Vasbeton födém";
+    if(l.mount==null) l.mount="mennyezetre szerelt";
+    if(l.ledType==null) l.ledType="";
+    if(l.ledSku==null) l.ledSku="";
+    if(l.ledBrand==null) l.ledBrand="";
+  });
   if(!Array.isArray(s.luxRooms)) s.luxRooms=[];
   if(typeof s.luxRef!=="object"||!s.luxRef) s.luxRef={};
   if(typeof s.quotePrices!=="object"||!s.quotePrices) s.quotePrices={};
@@ -75,7 +83,7 @@ function setSync(t){var el=document.getElementById("sync"); if(el) el.textConten
 
 function emptyLamp(){
   return {id:uid(), building:"", room:"", category:"Iroda", tech:"Fénycsöves LFL",
-    control:"Kézi", qty:0, wCur:0, wLed:0, hoursPerDay:0, condition:3,
+    control:"Kézi", qty:0, sources:1, wCur:0, wLed:0, hoursPerDay:0, condition:3,
     surface:"Vasbeton födém", mount:"mennyezetre szerelt",
     ledType:"", ledSku:"", ledBrand:""};
 }
@@ -88,8 +96,9 @@ function calc(){
   var curW=0, ledW=0, curKwh=0, ledKwh=0, qtyTotal=0;
   state.lamps.forEach(function(l){
     var q=num(l.qty);
-    var pcW=q*num(l.wCur);     // előtte összW (db * W/db)
-    var plW=q*num(l.wLed);     // utána összW
+    var srcs=num(l.sources)||1;        // fényforrás / lámpatest (régi oldal)
+    var pcW=q*srcs*num(l.wCur);         // előtte összW = db × fényforrás/lámpatest × fényforrás W
+    var plW=q*num(l.wLed);              // utána összW = db × LED W (a LED W a teljes armatúra)
     var h=num(l.hoursPerDay)*days;
     curW+=pcW; ledW+=plW; qtyTotal+=q;
     curKwh+=pcW*h/1000; ledKwh+=plW*h/1000;
@@ -270,11 +279,11 @@ function renderLampTable(){
   var days=num(state.daysPerYear)||365, price=num(state.priceFt);
   var head='<thead><tr>'+
     '<th>#</th><th>Épület</th><th>Helyiség</th><th>Kategória</th><th>Felület</th><th>Szerelés</th><th>Technológia</th><th>Vezérlés</th>'+
-    '<th>Db</th><th>Jelenlegi W/db</th><th>Javasolt LED W/db</th><th>Kiváltó típus</th><th>SKU/cikkszám</th><th>Gyártó</th><th>Üzemóra/nap</th><th>Állapot</th>'+
+    '<th>Db</th><th>Fényforrás/<br>lámpatest</th><th>Jelenlegi<br>fényforrás W/db</th><th>Javasolt<br>LED W/db</th><th>Kiváltó típus</th><th>SKU/cikkszám</th><th>Gyártó</th><th>Üzemóra/nap</th><th>Állapot</th>'+
     '<th>Előtte kWh/év</th><th>Utána kWh/év</th><th></th></tr></thead>';
   var body=state.lamps.map(function(l,i){
-    var q=num(l.qty), h=num(l.hoursPerDay)*days;
-    var curKwh=q*num(l.wCur)*h/1000, ledKwh=q*num(l.wLed)*h/1000;
+    var q=num(l.qty), srcs=num(l.sources)||1, h=num(l.hoursPerDay)*days;
+    var curKwh=q*srcs*num(l.wCur)*h/1000, ledKwh=q*num(l.wLed)*h/1000;
     function sel(opts,key){return '<select data-id="'+l.id+'" data-f="'+key+'">'+opts.map(function(x){return '<option'+(l[key]===x?" selected":"")+'>'+x+'</option>';}).join("")+'</select>';}
     return '<tr>'+
       '<td class="calc">'+(i+1)+'</td>'+
@@ -286,6 +295,7 @@ function renderLampTable(){
       '<td>'+sel(TECHNOLOGIES,"tech")+'</td>'+
       '<td>'+sel(CONTROL_TYPES,"control")+'</td>'+
       '<td><input class="num" type="number" data-id="'+l.id+'" data-f="qty" value="'+(l.qty||"")+'"></td>'+
+      '<td><input class="num" type="number" data-id="'+l.id+'" data-f="sources" value="'+(l.sources!=null?l.sources:1)+'"></td>'+
       '<td><input class="num" type="number" data-id="'+l.id+'" data-f="wCur" value="'+(l.wCur||"")+'"></td>'+
       '<td><input class="num" type="number" data-id="'+l.id+'" data-f="wLed" value="'+(l.wLed||"")+'"></td>'+
       '<td><input data-id="'+l.id+'" data-f="ledType" value="'+(l.ledType||"")+'" placeholder="pl. 28W LED panel 600×600"></td>'+
@@ -349,7 +359,7 @@ function renderMegterules(){
     rows+='<tr><td>'+y+'. év</td><td class="num">'+fmtFt(cumCur)+'</td><td class="num">'+fmtFt(cumLed)+'</td><td class="num calc">'+fmtFt(cumCur-cumLed)+'</td></tr>';
   }
   document.getElementById("cumTable").innerHTML=
-    '<thead><tr><th>Időszak</th><th>Jelenlegi költség</th><th>LED költség</th><th>Megtakarítás</th></tr></thead><tbody>'+rows+'</tbody>';
+    '<thead><tr><th>Időszak</th><th class="num">Jelenlegi költség</th><th class="num">LED költség</th><th class="num">Megtakarítás</th></tr></thead><tbody>'+rows+'</tbody>';
 }
 function pbCard(h,v,s,accent){return '<div class="pb-card'+(accent?" accent":"")+'"><h3>'+h+'</h3><div class="v">'+v+'</div>'+(s?'<div class="s">'+s+'</div>':"")+'</div>';}
 
@@ -498,6 +508,23 @@ function printCss(){
     '.c h3{margin:0 0 4px;font-size:10.5px;color:#5f7388;text-transform:uppercase}'+
     '.c .v{font-size:20px;font-weight:800}'+
     '.foot{margin-top:24px;font-size:10.5px;color:#8aa0b6;border-top:1px solid #e3eaf2;padding-top:10px}'+
+    /* vezetői riport vizuális elemek */
+    '.execrow{display:flex;gap:18px;margin:14px 0 6px;align-items:stretch}'+
+    '.gaugebox{flex:none;width:180px;border:1px solid #e3eaf2;border-radius:14px;padding:14px;text-align:center;background:#fff}'+
+    '.gaugelabel{font-size:16px;font-weight:800;margin-top:2px}'+
+    '.gaugesub{font-size:10.5px;color:#8aa0b6;text-transform:uppercase;letter-spacing:.1em}'+
+    '.kpibox{flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center}'+
+    '.kpi2{border:1px solid #e3eaf2;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}'+
+    '.kpi2 span{font-size:12px;color:#5f7388}.kpi2 b{font-size:17px;font-weight:800;color:#16304a}'+
+    '.subbars{margin-top:2px;display:flex;flex-direction:column;gap:7px}'+
+    '.scorebar{font-size:11px}'+
+    '.sbl{display:flex;justify-content:space-between;margin-bottom:3px}.sbl b{font-weight:800}'+
+    '.sbtrack{height:9px;background:#eef2f7;border-radius:6px;overflow:hidden}'+
+    '.sbfill{height:100%;border-radius:6px}'+
+    '.chartrow{display:flex;gap:14px;margin:8px 0 4px}'+
+    '.chartbox{flex:1;border:1px solid #e3eaf2;border-radius:14px;padding:12px;background:#fff}'+
+    '.chartbox h3.ch{font-size:12.5px;color:#0b5fd4;margin:0 0 4px;font-weight:800}'+
+    '.chartnote{font-size:11px;color:#2fcf6f;font-weight:700;text-align:center;margin-top:4px}'+
     '</style>';
 }
 function printHead(title){
@@ -538,24 +565,83 @@ function printQuote(){
 function printExec(){
   var c=calc(), s=score(), q=buildQuote();
   function pb(x){return x>0?(x.toFixed(2).replace(".",",")+" év"):"–";}
-  var cards='<div class="cards">'+
-    '<div class="c"><h3>Összpontszám</h3><div class="v">'+(s?s.total+"/100":"–")+'</div></div>'+
-    '<div class="c"><h3>Éves megtakarítás</h3><div class="v">'+fmtFt(c.saveFt)+'</div></div>'+
-    '<div class="c"><h3>Megtérülés</h3><div class="v">'+pb(c.pbPlain)+'</div></div></div>';
-  var cum="", cc=0, cl=c.invest+c.audit-c.tao;
+  var total = s ? s.total : 0;
+  // összpontszám szín a sáv szerint
+  var scColor = total>=80 ? "#2fcf6f" : total>=70 ? "#9acd32" : total>=55 ? "#f2b705" : "#e5484d";
+  var bandLabel = s ? s.band.label : "–";
+
+  // SVG gauge (kör) az összpontszámhoz
+  var R=54, C=2*Math.PI*R, off=C*(1-total/100);
+  var gauge =
+    '<svg width="150" height="150" viewBox="0 0 150 150">'+
+      '<circle cx="75" cy="75" r="'+R+'" fill="none" stroke="#e9eef4" stroke-width="14"/>'+
+      '<circle cx="75" cy="75" r="'+R+'" fill="none" stroke="'+scColor+'" stroke-width="14" stroke-linecap="round" '+
+        'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 75 75)"/>'+
+      '<text x="75" y="70" text-anchor="middle" font-size="38" font-weight="800" fill="#16304a">'+total+'</text>'+
+      '<text x="75" y="92" text-anchor="middle" font-size="13" fill="#8aa0b6">/ 100</text>'+
+    '</svg>';
+
+  // alpontszám-sávok
+  function bar(label, val, col){
+    return '<div class="scorebar"><div class="sbl"><span>'+label+'</span><b>'+val+'</b></div>'+
+      '<div class="sbtrack"><div class="sbfill" style="width:'+val+'%;background:'+col+'"></div></div></div>';
+  }
+  var subBars = s ?
+    bar("Energiahatékonyság", s.energy, "#1b8ff5")+
+    bar("Komfort / lux", s.comfort, "#f2b705")+
+    bar("Technológia", s.tech, "#2fcf6f") : "";
+
+  // fogyasztás oszlopdiagram (jelenlegi vs LED)
+  var maxKwh = Math.max(c.curKwh, c.ledKwh, 1);
+  var hCur = Math.round(150*c.curKwh/maxKwh), hLed = Math.round(150*c.ledKwh/maxKwh);
+  var barChart =
+    '<svg width="100%" height="200" viewBox="0 0 280 200" preserveAspectRatio="xMidYMid meet">'+
+      '<line x1="20" y1="170" x2="260" y2="170" stroke="#d9e2ec" stroke-width="1.5"/>'+
+      '<rect x="60" y="'+(170-hCur)+'" width="60" height="'+hCur+'" rx="5" fill="#e5484d"/>'+
+      '<text x="90" y="'+(170-hCur-7)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#16304a">'+fmtInt(c.curKwh)+'</text>'+
+      '<text x="90" y="187" text-anchor="middle" font-size="11" fill="#5f7388">Jelenlegi</text>'+
+      '<rect x="160" y="'+(170-hLed)+'" width="60" height="'+hLed+'" rx="5" fill="#2fcf6f"/>'+
+      '<text x="190" y="'+(170-hLed-7)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#16304a">'+fmtInt(c.ledKwh)+'</text>'+
+      '<text x="190" y="187" text-anchor="middle" font-size="11" fill="#5f7388">LED után</text>'+
+      '<text x="140" y="14" text-anchor="middle" font-size="10.5" fill="#8aa0b6">éves fogyasztás (kWh)</text>'+
+    '</svg>';
+
+  // kumulált megtakarítás adatok + vonaldiagram
+  var cum="", pts=[], cc=0, cl=c.invest+c.audit-c.tao;
   var ac=c.curFt+num(state.maintAnnualCur), al=c.ledFt+num(state.maintAnnualLed);
   cum+='<tr><td>beruházás</td><td class="num">'+fmtFt(0)+'</td><td class="num">'+fmtFt(cl)+'</td><td class="num">'+fmtFt(0-cl)+'</td></tr>';
-  for(var y=1;y<=5;y++){cc+=ac;cl+=al;cum+='<tr><td>'+y+'. év</td><td class="num">'+fmtFt(cc)+'</td><td class="num">'+fmtFt(cl)+'</td><td class="num">'+fmtFt(cc-cl)+'</td></tr>';}
+  var saveSeries=[0-cl];
+  for(var y=1;y<=5;y++){cc+=ac;cl+=al;cum+='<tr><td>'+y+'. év</td><td class="num">'+fmtFt(cc)+'</td><td class="num">'+fmtFt(cl)+'</td><td class="num">'+fmtFt(cc-cl)+'</td></tr>'; saveSeries.push(cc-cl);}
+  // vonaldiagram a kumulált megtakarításról (0..5 év)
+  var minS=Math.min.apply(null,saveSeries), maxS=Math.max.apply(null,saveSeries), rng=(maxS-minS)||1;
+  var lpts = saveSeries.map(function(v,i){ var x=30+i*(420/5); var yy=170-150*(v-minS)/rng; return x.toFixed(0)+","+yy.toFixed(0); });
+  var zeroY = 170-150*(0-minS)/rng;
+  var lineChart =
+    '<svg width="100%" height="200" viewBox="0 0 470 200" preserveAspectRatio="xMidYMid meet">'+
+      '<line x1="30" y1="'+zeroY.toFixed(0)+'" x2="450" y2="'+zeroY.toFixed(0)+'" stroke="#d9e2ec" stroke-width="1" stroke-dasharray="4 3"/>'+
+      '<polyline fill="none" stroke="#0b5fd4" stroke-width="3" stroke-linejoin="round" points="'+lpts.join(" ")+'"/>'+
+      lpts.map(function(pt,i){var xy=pt.split(","); return '<circle cx="'+xy[0]+'" cy="'+xy[1]+'" r="4" fill="#0b5fd4"/><text x="'+xy[0]+'" y="190" text-anchor="middle" font-size="10" fill="#5f7388">'+(i===0?"start":i+". év")+'</text>';}).join("")+
+      '<text x="240" y="14" text-anchor="middle" font-size="10.5" fill="#8aa0b6">kumulált megtakarítás (Ft)</text>'+
+    '</svg>';
+
   var html=printHead()+'<div class="wrap"><h1>Vezetői összefoglaló – világítás-korszerűsítés</h1>'+metaBlock()+
-    cards+
-    (state.note?'<p style="font-size:12px"><b>Vezetői fókusz:</b> '+state.note+'</p>':"")+
-    '<h2>Energetikai megtakarítás</h2>'+
-    '<table><tbody>'+
-    '<tr><td>Jelenlegi éves fogyasztás</td><td class="num">'+fmtInt(c.curKwh)+' kWh</td></tr>'+
-    '<tr><td>LED utáni éves fogyasztás</td><td class="num">'+fmtInt(c.ledKwh)+' kWh</td></tr>'+
-    '<tr><td>Éves megtakarítás</td><td class="num">'+fmtInt(c.saveKwh)+' kWh / '+fmtFt(c.saveFt)+'</td></tr>'+
-    '</tbody></table>'+
-    '<h2>Megtérülés</h2>'+
+    // FŐ MUTATÓ blokk: gauge + minősítés + 2 KPI
+    '<div class="execrow">'+
+      '<div class="gaugebox">'+gauge+'<div class="gaugelabel" style="color:'+scColor+'">'+bandLabel+'</div><div class="gaugesub">SMARTScore</div></div>'+
+      '<div class="kpibox">'+
+        '<div class="kpi2"><span>Éves megtakarítás</span><b style="color:#2fcf6f">'+fmtFt(c.saveFt)+'</b></div>'+
+        '<div class="kpi2"><span>Megtérülés (kedvezmény nélkül)</span><b>'+pb(c.pbPlain)+'</b></div>'+
+        '<div class="subbars">'+subBars+'</div>'+
+      '</div>'+
+    '</div>'+
+    (state.note?'<p style="font-size:12px;margin-top:10px"><b>Vezetői fókusz:</b> '+state.note+'</p>':"")+
+    // két diagram egymás mellett
+    '<div class="chartrow">'+
+      '<div class="chartbox"><h3 class="ch">Energetikai megtakarítás</h3>'+barChart+
+        '<div class="chartnote">–'+Math.round(100*c.saveKwh/(c.curKwh||1))+'% éves fogyasztáscsökkenés ('+fmtInt(c.saveKwh)+' kWh/év)</div></div>'+
+      '<div class="chartbox"><h3 class="ch">5 éves kumulált megtakarítás</h3>'+lineChart+'</div>'+
+    '</div>'+
+    '<h2>Megtérülés – részletek</h2>'+
     '<table><tbody>'+
     '<tr><td>Beruházás (lámpák + kivitelezés)</td><td class="num">'+fmtFt(c.invest)+'</td></tr>'+
     '<tr><td>Megtérülés – kedvezmény nélkül</td><td class="num">'+pb(c.pbPlain)+'</td></tr>'+

@@ -1,0 +1,16 @@
+{
+  "name": "smartguard-mvp",
+  "version": "1.0.0",
+  "description": "SMARTGuard VBF helyszíni rendszer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "docx": "^9.6.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

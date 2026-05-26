@@ -12,11 +12,18 @@ MIME = {
     '.json': 'application/json',
     '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     '.webmanifest': 'application/manifest+json',
+    '.png':  'image/png',
+    '.jpg':  'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.svg':  'image/svg+xml',
+    '.ico':  'image/x-icon',
 }
 
 def find_python():
+    # Ugyanazt a Python-t használjuk, amivel a szerver fut – így biztosan
+    # ugyanaz a környezet (és ugyanaz az lxml) érhető el a generáláshoz.
     import shutil
-    return shutil.which('python3') or shutil.which('python') or 'python'
+    return sys.executable or shutil.which('python3') or shutil.which('python') or 'python'
 
 PYTHON = find_python()
 
